@@ -1,0 +1,934 @@
+{
+  "forms": [
+    {
+      "slug": "form-testing-n8n",
+      "name": "Form testing n8n",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["form-testing-n8n", "Validated"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            },
+            {
+              "id": "consentMarketing",
+              "type": "checkbox",
+              "label": "I agree to marketing communications",
+              "required": false,
+              "map": "consentMarketing"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "form-1-calendar",
+      "name": "Form 1 - calendar",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["form-1-calendar"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "systemScope",
+              "type": "radio",
+              "label": "Are you looking for a complete heating/cooling system or only specific components?",
+              "required": true,
+              "options": [
+                {
+                  "value": "complete_system",
+                  "label": "Complete heating/cooling system"
+                },
+                { "value": "heat_pump_only", "label": "Heat Pump only" }
+              ],
+              "mapCustomFieldId": "CF_FORM1_SYSTEM_SCOPE"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldId": "CF_FORM1_PROPERTY_TYPE"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100-499", "label": "100 sqft - 499 sqft" },
+                { "value": "500-1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "3001+", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldId": "CF_FORM1_SQUARE_FEET"
+            },
+            {
+              "id": "budget",
+              "type": "radio",
+              "label": "What budget do you have in mind?",
+              "required": true,
+              "options": [
+                { "value": "1000-3000", "label": "$1000-$3,000" },
+                { "value": "3001-4000", "label": "$3,001-$4,000" },
+                { "value": "4001-5000", "label": "$4,001-$5,000" },
+                { "value": "5001-6999", "label": "$5,001-$6,999" },
+                { "value": "7000+", "label": "+ $7000" }
+              ],
+              "mapCustomFieldId": "CF_FORM1_BUDGET"
+            },
+            {
+              "id": "startTimeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldId": "CF_FORM1_START_TIMELINE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            },
+            {
+              "id": "consentMarketing",
+              "type": "checkbox",
+              "label": "I agree to marketing communications",
+              "required": false,
+              "map": "consentMarketing"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "form-2-calendar-boilers",
+      "name": "Form 2 - calendar - boilers",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["form-2-calendar-boilers"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "boilerType",
+              "type": "radio",
+              "label": "What type of boiler are you looking for?",
+              "required": true,
+              "options": [
+                { "value": "wood", "label": "Wood Boiler" },
+                { "value": "pellet", "label": "Pellet Boiler" },
+                { "value": "coal", "label": "Coal Boiler" },
+                { "value": "gas", "label": "Gas Boiler" },
+                { "value": "oil", "label": "Oil Boiler" }
+              ],
+              "mapCustomFieldId": "CF_FORM2_BOILER_TYPE"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldId": "CF_FORM2_PROPERTY_TYPE"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100-499", "label": "100 sqft - 499 sqft" },
+                { "value": "500-1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "3001+", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldId": "CF_FORM2_SQUARE_FEET"
+            },
+            {
+              "id": "budget",
+              "type": "radio",
+              "label": "What budget do you have in mind?",
+              "required": true,
+              "options": [
+                { "value": "1000-3000", "label": "$1000-$3,000" },
+                { "value": "3001-4000", "label": "$3,001-$4,000" },
+                { "value": "4001-5000", "label": "$4,001-$5,000" },
+                { "value": "5001-6999", "label": "$5,001-$6,999" },
+                { "value": "7000+", "label": "+ $7000" }
+              ],
+              "mapCustomFieldId": "CF_FORM2_BUDGET"
+            },
+            {
+              "id": "startTimeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldId": "CF_FORM2_START_TIMELINE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            },
+            {
+              "id": "consentMarketing",
+              "type": "checkbox",
+              "label": "I agree to marketing communications",
+              "required": false,
+              "map": "consentMarketing"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "form-3-calendar-fcu",
+      "name": "Form 3 - calendar - FCU",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["form-3-calendar-fcu"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "systemScope",
+              "type": "radio",
+              "label": "Are you looking for a complete heating/cooling system or only specific components?",
+              "required": true,
+              "options": [
+                {
+                  "value": "complete_system",
+                  "label": "Complete Heating & Cooling System"
+                },
+                { "value": "fan_coil_only", "label": "Fan Coil Unit only" },
+                {
+                  "value": "air_handler_only",
+                  "label": "Air Handler Unit only"
+                }
+              ],
+              "mapCustomFieldId": "CF_FORM3_SYSTEM_SCOPE"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldId": "CF_FORM3_PROPERTY_TYPE"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100-499", "label": "100 sqft - 499 sqft" },
+                { "value": "500-1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "3001+", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldId": "CF_FORM3_SQUARE_FEET"
+            },
+            {
+              "id": "budget",
+              "type": "radio",
+              "label": "What budget do you have in mind?",
+              "required": true,
+              "options": [
+                { "value": "1000-3000", "label": "$1000-$3,000" },
+                { "value": "3001-4000", "label": "$3,001-$4,000" },
+                { "value": "4001-5000", "label": "$4,001-$5,000" },
+                { "value": "5001-6999", "label": "$5,001-$6,999" },
+                { "value": "7000+", "label": "+ $7000" }
+              ],
+              "mapCustomFieldId": "CF_FORM3_BUDGET"
+            },
+            {
+              "id": "startTimeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldId": "CF_FORM3_START_TIMELINE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            },
+            {
+              "id": "consentMarketing",
+              "type": "checkbox",
+              "label": "I agree to marketing communications",
+              "required": false,
+              "map": "consentMarketing"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "form-contact-us",
+      "name": "Form Contact US",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["form-contact-us"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Details",
+          "fields": [
+            {
+              "id": "purpose",
+              "type": "radio",
+              "label": "Purpose",
+              "required": true,
+              "options": [
+                { "value": "request_quote", "label": "Request Quote" },
+                {
+                  "value": "paid_order_concern",
+                  "label": "Concerns about a Paid Order"
+                },
+                {
+                  "value": "product_question",
+                  "label": "Question Concerning Our Products"
+                },
+                {
+                  "value": "rewards_program",
+                  "label": "MBTEK Rewards Program"
+                },
+                { "value": "vendor_program", "label": "MBTEK Vendor Program" },
+                { "value": "general_question", "label": "General question" }
+              ],
+              "mapCustomFieldId": "CF_FORMCU_PURPOSE"
+            },
+            {
+              "id": "message",
+              "type": "textarea",
+              "label": "Message",
+              "required": true,
+              "rows": 5,
+              "placeholder": "Tell us how we can help…",
+              "mapCustomFieldId": "CF_FORMCU_MESSAGE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "general-lead-form",
+      "name": "general - lead form",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["general-lead-form"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "systemScope",
+              "type": "select",
+              "label": "Do you need a full heating/cooling system or just individual components?",
+              "required": true,
+              "options": [
+                {
+                  "value": "Complete heating/cooling system",
+                  "label": "Complete heating/cooling system"
+                },
+                { "value": "Heat Pump", "label": "Heat Pump" },
+                { "value": "Boiler", "label": "Boiler" },
+                { "value": "FCU", "label": "FCU" },
+                { "value": "Water Tank", "label": "Water Tank" }
+              ],
+              "mapCustomFieldId": "CF_GEN_SYSTEM_SCOPE"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldId": "CF_GEN_PROPERTY_TYPE"
+            },
+            {
+              "id": "budget",
+              "type": "radio",
+              "label": "What budget do you have in mind?",
+              "required": true,
+              "options": [
+                { "value": "1000-3000", "label": "$1000-$3,000" },
+                { "value": "3001-4000", "label": "$3,001-$4,000" },
+                { "value": "4001-5000", "label": "$4,001-$5,000" },
+                { "value": "5001-6999", "label": "$5,001-$6,999" },
+                { "value": "7000+", "label": "+ $7000" }
+              ],
+              "mapCustomFieldId": "CF_GEN_BUDGET"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100-499", "label": "100 sqft - 499 sqft" },
+                { "value": "500-1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "3001+", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldId": "CF_GEN_SQUARE_FEET"
+            },
+            {
+              "id": "startTimeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldId": "CF_GEN_START_TIMELINE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "google-ads-lead-form",
+      "name": "Google ADS - Lead Form",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["google-ads-lead-form", "google-ads"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": true,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": true,
+              "map": "lastName"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "mailboxlayer"
+            },
+            {
+              "id": "country",
+              "type": "country",
+              "label": "Country",
+              "required": false,
+              "default": "US"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "numverify"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "systemScope",
+              "type": "select",
+              "label": "Do you need a full heating/cooling system or just individual components?",
+              "required": true,
+              "options": [
+                {
+                  "value": "Complete heating/cooling system",
+                  "label": "Complete heating/cooling system"
+                },
+                { "value": "Heat Pump", "label": "Heat Pump" },
+                { "value": "Boiler", "label": "Boiler" },
+                { "value": "FCU", "label": "FCU" },
+                { "value": "Water Tank", "label": "Water Tank" }
+              ],
+              "mapCustomFieldId": "CF_GADS_SYSTEM_SCOPE"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldId": "CF_GADS_PROPERTY_TYPE"
+            },
+            {
+              "id": "budget",
+              "type": "radio",
+              "label": "What budget do you have in mind?",
+              "required": true,
+              "options": [
+                { "value": "1000-3000", "label": "$1000-$3,000" },
+                { "value": "3001-4000", "label": "$3,001-$4,000" },
+                { "value": "4001-5000", "label": "$4,001-$5,000" },
+                { "value": "5001-6999", "label": "$5,001-$6,999" },
+                { "value": "7000+", "label": "+ $7000" }
+              ],
+              "mapCustomFieldId": "CF_GADS_BUDGET"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100-499", "label": "100 sqft - 499 sqft" },
+                { "value": "500-1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "3001+", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldId": "CF_GADS_SQUARE_FEET"
+            },
+            {
+              "id": "startTimeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldId": "CF_GADS_START_TIMELINE"
+            }
+          ]
+        },
+        {
+          "title": "Consents",
+          "fields": [
+            {
+              "id": "consentTransactional",
+              "type": "checkbox",
+              "label": "I Consent to Receive SMS Notifications, Alerts & Occasional Marketing Communication from company. Message frequency varies. Message & data rates may apply. You can reply STOP to unsubscribe at any time.",
+              "required": true,
+              "map": "consentTransactional"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
