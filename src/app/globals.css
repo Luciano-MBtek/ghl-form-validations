@@ -6,3 +6,65 @@ html,
 body {
   height: 100%;
 }
+
+/* Make PhoneInput layout mimic a single input with a left add-on */
+.PhoneInput {
+  display: flex;
+  width: 100%;
+}
+
+/* Left add-on: the country selector cell */
+.PhoneInputCountry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-left: 0.5rem; /* pl-2 */
+  padding-right: 1.75rem; /* pr-7 -> leave room for chevron */
+  border-right: 1px solid rgb(209 213 219); /* gray-300 */
+}
+
+/* Remove native arrow and borders from the <select> */
+.PhoneInputCountrySelect {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Custom chevron inside the same cell, to the RIGHT of "US" text */
+.PhoneInputCountry::after {
+  content: "";
+  position: absolute;
+  right: 0.5rem; /* chevron sits inside the add-on */
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid rgb(107 114 128); /* gray-500 */
+  border-top: 2px solid rgb(107 114 128);
+  transform: translateY(-50%) rotate(135deg);
+  pointer-events: none;
+}
+
+/* The actual number input: no borders (outer wrapper owns the border) */
+.PhoneInputInput {
+  flex: 1 1 auto;
+  width: 100%;
+  background: transparent;
+  border: 0 !important;
+  outline: 0 !important;
+  padding: 0.5rem 0.75rem; /* py-2 px-3 */
+  color: rgb(17 24 39); /* gray-900 */
+}
+
+/* Ensure focus ring is driven by the wrapper only */
+.PhoneInputInput:focus {
+  outline: none;
+  box-shadow: none;
+}

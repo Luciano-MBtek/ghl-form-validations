@@ -3,6 +3,8 @@ import { validateEmail, validatePhone } from "@/lib/validate";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import { addContactToWorkflow, upsertContact } from "@/lib/leadconnector";
 
+export const runtime = "nodejs";
+
 type LeadPayload = {
   formSlug?: string;
   firstName: string;

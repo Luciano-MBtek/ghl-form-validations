@@ -89,7 +89,7 @@ export default function LeadForm({
 
   // Base class helpers (UI only)
   const INPUT_BASE =
-    "block w-full rounded-md border bg-white px-3 py-2 pr-9 text-gray-900 placeholder-gray-400 focus:outline-none";
+    "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
   const BUTTON_BASE =
     "inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
   function inputStateClasses(valid: boolean | null, pending: boolean) {
@@ -97,7 +97,7 @@ export default function LeadForm({
       return "border-red-500 focus:ring-red-500 focus:border-red-500";
     if (valid === true && !pending)
       return "border-green-500 focus:ring-green-500 focus:border-green-500";
-    return "border-gray-300 focus:ring-blue-500 focus:border-blue-500";
+    return ""; // Use default INPUT_BASE styling
   }
 
   // Show validation state only after user interaction
@@ -383,7 +383,7 @@ export default function LeadForm({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             onBlur={validateEmailField}
-            className={`${INPUT_BASE} ${
+            className={`${INPUT_BASE} pr-9 ${
               showEmailState ? inputStateClasses(emailValid, emailPending) : ""
             }`}
             required
@@ -456,14 +456,14 @@ export default function LeadForm({
           Phone <span className="text-red-500">*</span>
         </label>
         <div
-          className={`relative rounded-md border bg-white ${
+          className={`relative flex items-stretch rounded-md border border-gray-300 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 ${
             showPhoneState ? inputStateClasses(phoneValid, phonePending) : ""
           }`}
         >
-          <div className="flex items-center gap-2 px-3 py-2 pr-9">
+          <div className="PhoneInputCountry">
             <select
               aria-label="Country"
-              className="block rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 focus:outline-none"
+              className="PhoneInputCountrySelect"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
             >
@@ -473,20 +473,20 @@ export default function LeadForm({
               <option value="PA">PA</option>
               <option value="AU">AU</option>
             </select>
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => onPhoneChange(e.target.value)}
-              onBlur={validatePhoneField}
-              placeholder="+1234567890"
-              className="w-full bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none"
-              required
-              aria-invalid={phoneValid === false}
-              aria-describedby="phone-help"
-            />
           </div>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => onPhoneChange(e.target.value)}
+            onBlur={validatePhoneField}
+            placeholder="+1234567890"
+            className="PhoneInputInput flex-1 w-full bg-transparent border-0 outline-0 py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:shadow-none"
+            required
+            aria-invalid={phoneValid === false}
+            aria-describedby="phone-help"
+          />
           {showPhoneState && phonePending && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
               <Spinner />

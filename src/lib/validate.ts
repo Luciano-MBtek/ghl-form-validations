@@ -2,6 +2,66 @@ import { getCache, setCache } from "./cache";
 import { mailboxlayerCheck } from "./mailboxlayer";
 import { numverifyCheck } from "./numverify";
 import type { EmailResult, PhoneResult } from "./validationTypes";
+import {
+  ENABLE_TRUSTED_EMAIL_FALLBACK,
+  ENABLE_MX_FALLBACK,
+  BLOCK_ROLE_EMAILS,
+} from "./config";
+import dns from "node:dns";
+
+const TRUSTED_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "yahoo.com",
+  "ymail.com",
+  "icloud.com",
+  "me.com",
+  "proton.me",
+  "protonmail.com",
+]);
+
+function getDomain(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return null;
+  const d = email
+    .slice(at + 1)
+    .trim()
+    .toLowerCase();
+  return d || null;
+}
+
+async function hasMx(domain: string, timeoutMs = 1500): Promise<boolean> {
+  const p = dns.promises
+    .resolveMx(domain)
+    .then((recs) => Array.isArray(recs) && recs.length > 0)
+    .catch(() => false);
+  return await Promise.race([
+    p,
+    new Promise<boolean>((r) => setTimeout(() => r(false), timeoutMs)),
+  ]);
+}
+
+function isRoleEmail(email: string): boolean {
+  if (!BLOCK_ROLE_EMAILS) return false;
+  const local = email.split("@")[0]?.toLowerCase() || "";
+  const rolePrefixes = [
+    "info",
+    "sales",
+    "support",
+    "admin",
+    "contact",
+    "help",
+    "noreply",
+    "no-reply",
+  ];
+  return rolePrefixes.some(
+    (prefix) => local === prefix || local.startsWith(prefix + ".")
+  );
+}
 
 export function isPlausibleEmail(email: string): boolean {
   if (!email || email.length > 254) return false;
@@ -34,16 +94,41 @@ export async function validateEmail(email?: string): Promise<EmailResult> {
   }
 
   const { result } = await mailboxlayerCheck(normalizedEmail);
+
+  // Apply fallback logic if Mailboxlayer returned null (timeout/error)
+  let finalResult = result;
+  if (
+    result.valid === null &&
+    (result.reason === "timeout_soft_pass" ||
+      result.reason === "provider_missing")
+  ) {
+    const domain = getDomain(normalizedEmail);
+
+    if (domain) {
+      // Check trusted domains first
+      if (ENABLE_TRUSTED_EMAIL_FALLBACK && TRUSTED_EMAIL_DOMAINS.has(domain)) {
+        finalResult = { valid: true, reason: "provisional_trusted" };
+      }
+      // Check MX records for other domains
+      else if (ENABLE_MX_FALLBACK && !isRoleEmail(normalizedEmail)) {
+        const hasMxRecords = await hasMx(domain);
+        if (hasMxRecords) {
+          finalResult = { valid: true, reason: "provisional_mx" };
+        }
+      }
+    }
+  }
+
   setCache(
     cacheKey,
     {
-      emailValid: result.valid,
-      emailReason: result.reason,
+      emailValid: finalResult.valid,
+      emailReason: finalResult.reason,
     },
     15 * 60 * 1000
   ); // 15 minutes
 
-  return result;
+  return finalResult;
 }
 
 export async function validatePhone(

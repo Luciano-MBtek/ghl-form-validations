@@ -8,6 +8,10 @@ export const BLOCK_ROLE_EMAILS = true;
 export const BLOCK_VOIP = true;
 export const ALLOW_LANDLINE = true; // set to false if you want only mobile
 
+// Email fallback policy
+export const ENABLE_TRUSTED_EMAIL_FALLBACK = true;
+export const ENABLE_MX_FALLBACK = true;
+
 export const config = {
   mailboxlayerApiKey: process.env.MAILBOXLAYER_API_KEY || "",
   numverifyApiKey: process.env.NUMVERIFY_API_KEY || "",

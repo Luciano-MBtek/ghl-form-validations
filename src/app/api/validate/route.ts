@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
 import { rateLimit } from "@/lib/rateLimit";
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   try {
     // Rate limiting
