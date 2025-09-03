@@ -1,4 +1,14 @@
 {
+  "legalDefaults": {
+    "privacy": {
+      "label": "Privacy Policy",
+      "href": "https://www.mbtek.com/pages/privacy-policy"
+    },
+    "terms": {
+      "label": "Terms of Service",
+      "href": "https://www.mbtek.com/pages/terms-of-service-tos"
+    }
+  },
   "forms": [
     {
       "slug": "form-testing-n8n",

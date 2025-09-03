@@ -22,8 +22,12 @@ export default async function Page({
             shortly.
           </p>
           <hr className="my-6 border-gray-200" />
-          {/* IMPORTANT: pass formConfig */}
-          <LeadForm formSlug={form.slug} formConfig={form as any} />
+          {/* IMPORTANT: pass formConfig and legal */}
+          <LeadForm
+            formSlug={form.slug}
+            formConfig={form as any}
+            legal={(form as any).legal}
+          />
         </div>
       </div>
     </main>

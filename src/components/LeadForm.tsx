@@ -16,10 +16,15 @@ export default function LeadForm({
   formSlug,
   title,
   formConfig,
+  legal,
 }: {
   formSlug: string;
   title?: string;
   formConfig: FormConfig;
+  legal?: {
+    privacy?: { label: string; href: string };
+    terms?: { label: string; href: string };
+  };
 }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -605,6 +610,30 @@ export default function LeadForm({
           </label>
         </div>
       </div>
+
+      <hr className="sm:col-span-2 my-6 border-gray-200" />
+
+      {legal?.privacy?.href && legal?.terms?.href ? (
+        <p className="sm:col-span-2 mt-2 text-center text-sm text-gray-600">
+          <a
+            href={legal.privacy.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-800"
+          >
+            {legal.privacy.label || "Privacy Policy"}
+          </a>
+          <span className="mx-2 text-gray-300">|</span>
+          <a
+            href={legal.terms.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-800"
+          >
+            {legal.terms.label || "Terms of Service"}
+          </a>
+        </p>
+      ) : null}
 
       <div className="sm:col-span-2 mt-2">
         <button
