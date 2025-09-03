@@ -1,71 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
-import { validateEmailAndPhone } from "@/lib/validate";
+import { NextResponse } from "next/server";
+import { validateEmail, validatePhone } from "@/lib/validate";
 import { rateLimit } from "@/lib/rateLimit";
-import { config } from "@/lib/config";
 
-function getIp(req: NextRequest): string {
-  // Common headers in Vercel/Next
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) return forwardedFor.split(",")[0].trim();
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  return "unknown";
-}
-
-export async function POST(req: NextRequest) {
-  const ip = getIp(req);
-  const rl = await rateLimit(ip, config.rateLimitPerMin, 60_000);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { message: "Too many requests. Please try again in a moment." },
-      {
-        status: 429,
-        headers: { "X-RateLimit-Remaining": String(rl.remaining) },
-      }
-    );
-  }
-
-  let body: any;
+export async function POST(req: Request) {
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
-  }
+    // Rate limiting
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+    const rateLimitResult = await rateLimit(ip, 10, 60 * 1000); // 10 requests per minute
 
-  const email = typeof body.email === "string" ? body.email : undefined;
-  const phone = typeof body.phone === "string" ? body.phone : undefined;
-  const country = typeof body.country === "string" ? body.country : undefined;
-
-  try {
-    // quick heuristic for obviously bad email to avoid API calls
-    if (email) {
-      const e = String(email).trim();
-      if (!e.includes("@") || /\.$/.test(e)) {
-        return NextResponse.json({
-          emailValid: false,
-          emailReason: "bad_format",
-          echoEmail: email,
-          phoneValid: phone ? undefined : undefined,
-          phoneReason: phone ? undefined : undefined,
-        });
-      }
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Please try again later." },
+        { status: 429 }
+      );
     }
-    const res = await validateEmailAndPhone(email, phone, country);
+
+    const { email, phone, country } = await req.json().catch(() => ({}));
+
+    let emailResp = undefined;
+    if (typeof email === "string") {
+      const r = await validateEmail(email);
+      emailResp = {
+        emailValid: r.valid,
+        emailReason: r.reason,
+        echoEmail: email,
+      };
+    }
+
+    let phoneResp = undefined;
+    if (typeof phone === "string") {
+      const r = await validatePhone(phone, country);
+      phoneResp = {
+        phoneValid: r.valid,
+        phoneReason: r.reason,
+        echoPhone: phone,
+      };
+    }
+
     return NextResponse.json({
-      emailValid: res.emailValid ?? undefined,
-      emailReason: res.emailReason ?? undefined,
-      phoneValid: res.phoneValid ?? undefined,
-      phoneReason: res.phoneReason ?? undefined,
-      echoEmail: res.echoEmail,
-      echoPhone: res.echoPhone,
+      ...(emailResp ?? {}),
+      ...(phoneResp ?? {}),
     });
-  } catch (e) {
-    // Soft pass on unexpected errors
-    return NextResponse.json({
-      emailValid: email ? true : undefined,
-      emailReason: email ? "timeout_soft_pass" : undefined,
-      phoneValid: phone ? true : undefined,
-      phoneReason: phone ? "timeout_soft_pass" : undefined,
-    });
+  } catch (error) {
+    console.error("Validation error:", error);
+    return NextResponse.json(
+      { error: "Validation service temporarily unavailable" },
+      { status: 500 }
+    );
   }
 }

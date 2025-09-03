@@ -4,9 +4,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { FormConfig } from "@/lib/formsRegistry";
 
 type ValidateResponse = {
-  emailValid?: boolean;
+  emailValid?: boolean | null;
   emailReason?: string;
-  phoneValid?: boolean;
+  phoneValid?: boolean | null;
   phoneReason?: string;
   echoEmail?: string;
   echoPhone?: string;
@@ -159,11 +159,11 @@ export default function LeadForm({
       if (!res.ok) throw new Error("validate_failed");
       const data: ValidateResponse = await res.json();
       if ((data.echoEmail ?? value) !== value) return; // stale
-      setEmailValid(Boolean(data.emailValid));
+      setEmailValid(data.emailValid ?? null);
       setEmailReason(data.emailReason || "");
     } catch (e: any) {
       if (e.name === "AbortError") return;
-      setEmailValid(true);
+      setEmailValid(null);
       setEmailReason("timeout_soft_pass");
     } finally {
       setEmailPending(false);
@@ -192,11 +192,11 @@ export default function LeadForm({
       if (!res.ok) throw new Error("validate_failed");
       const data: ValidateResponse = await res.json();
       if ((data.echoPhone ?? value) !== value) return; // stale
-      setPhoneValid(Boolean(data.phoneValid));
+      setPhoneValid(data.phoneValid ?? null);
       setPhoneReason(data.phoneReason || "");
     } catch (e: any) {
       if (e.name === "AbortError") return;
-      setPhoneValid(true);
+      setPhoneValid(null);
       setPhoneReason("timeout_soft_pass");
     } finally {
       setPhonePending(false);
@@ -211,7 +211,7 @@ export default function LeadForm({
       const reqErrors: Record<string, string> = {};
       for (const section of formConfig.sections || []) {
         for (const field of section.fields || []) {
-          if (field.map && CORE_MAPS.has(field.map)) continue;
+          if ("map" in field && field.map && CORE_MAPS.has(field.map)) continue;
           if (field.required && !answers[field.id]) {
             reqErrors[field.id] = "This field is required.";
           }
@@ -229,7 +229,7 @@ export default function LeadForm({
         const customFields: { id: string; value: string }[] = [];
         for (const section of formConfig.sections || []) {
           for (const field of section.fields || []) {
-            if (field.mapCustomFieldId) {
+            if ("mapCustomFieldId" in field && field.mapCustomFieldId) {
               const v = answers[field.id];
               if (v != null && v !== "") {
                 customFields.push({
@@ -404,6 +404,8 @@ export default function LeadForm({
               ? "text-red-600"
               : emailValid === true
               ? "text-green-600"
+              : emailValid === null
+              ? "text-gray-500"
               : "text-gray-500"
           }`}
           aria-live="polite"
@@ -414,6 +416,8 @@ export default function LeadForm({
             ? emailReason || "Invalid email address"
             : emailValid === true
             ? "Looks good"
+            : emailValid === null
+            ? "Couldn't verify; we'll recheck on submit."
             : ""}
         </p>
       </div>
@@ -485,6 +489,8 @@ export default function LeadForm({
               ? "text-red-600"
               : phoneValid === true
               ? "text-green-600"
+              : phoneValid === null
+              ? "text-gray-500"
               : "text-gray-500"
           }`}
           aria-live="polite"
@@ -495,6 +501,8 @@ export default function LeadForm({
             ? phoneReason || "Invalid phone number"
             : phoneValid === true
             ? "Looks good"
+            : phoneValid === null
+            ? "Couldn't verify; we'll recheck on submit."
             : ""}
         </p>
       </div>

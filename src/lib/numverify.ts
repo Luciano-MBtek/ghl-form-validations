@@ -1,108 +1,97 @@
-import { config } from "./config";
+import { BLOCK_VOIP, ALLOW_LANDLINE, VALIDATION_TIMEOUT_MS } from "./config";
+import type { PhoneResult } from "./validationTypes";
 
-type NumverifyResponse = {
-  valid: boolean;
-  number: string;
-  local_format?: string | null;
-  international_format?: string | null;
-  country_prefix?: string | null;
-  country_code?: string | null;
-  country_name?: string | null;
-  location?: string | null;
-  carrier?: string | null;
-  line_type?: string | null; // mobile, landline, voip
-  success?: boolean;
-  error?: { code: number; type: string; info: string };
-};
+const API = "http://apilayer.net/api/validate";
+const KEY = process.env.NUMVERIFY_API_KEY;
 
-export type PhoneValidationResult = {
-  phoneValid: boolean;
-  phoneReason: string;
-  normalized: string;
-  raw?: NumverifyResponse | null;
-};
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = setTimeout(() => reject(new Error("timeout")), ms);
-    p.then(
-      (val) => {
-        clearTimeout(id);
-        resolve(val);
-      },
-      (err) => {
-        clearTimeout(id);
-        reject(err);
-      }
-    );
-  });
+export function isPlausiblePhoneBare(input: string): boolean {
+  if (!input) return false;
+  const digits = input.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15; // ITU E.164 range
 }
 
-export async function validatePhone(
-  phone: string,
+export async function numverifyCheck(
+  number: string,
   country?: string
-): Promise<PhoneValidationResult> {
-  const key = config.numverifyApiKey;
-  if (!key) {
-    return {
-      phoneValid: true,
-      phoneReason: "timeout_soft_pass",
-      normalized: phone,
-      raw: null,
-    };
-  }
-  // HTTP per docs for free tier; newer endpoints may use https on paid plans
-  const url = new URL("http://apilayer.net/api/validate");
-  url.searchParams.set("access_key", key);
-  url.searchParams.set("number", phone);
-  if (country) {
-    url.searchParams.set("country_code", country.toUpperCase());
+): Promise<{ raw?: any; result: PhoneResult }> {
+  if (!KEY) {
+    return { result: { valid: null, reason: "provider_missing" } };
   }
 
+  const url = new URL(API);
+  url.searchParams.set("access_key", KEY);
+  url.searchParams.set("number", number);
+  if (country) url.searchParams.set("country_code", country);
+  url.searchParams.set("format", "1");
+
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
+
   try {
-    const res = await withTimeout(
-      fetch(url.toString(), { cache: "no-store" }),
-      config.validationTimeoutMs
-    );
-    const data = (await res.json()) as NumverifyResponse;
-    if ((data as any).success === false) {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(to);
+    const data = await res.json();
+
+    // expected fields: valid, international_format, country_code, line_type, carrier
+    const { valid, international_format, country_code, line_type } = data || {};
+
+    if (valid !== true) {
+      return { raw: data, result: { valid: false, reason: "invalid_number" } };
+    }
+
+    if (
+      country &&
+      country_code &&
+      country_code.toUpperCase() !== country.toUpperCase()
+    ) {
       return {
-        phoneValid: true,
-        phoneReason: "timeout_soft_pass",
-        normalized: phone,
         raw: data,
+        result: { valid: false, reason: "country_mismatch" },
       };
     }
 
-    let valid = data.valid === true;
-    const reasons: string[] = [];
-    if (!valid) {
-      reasons.push("Number invalid");
+    const lt = (line_type || "").toLowerCase(); // 'mobile' | 'landline' | 'voip' | '' (unknown on free plan)
+    if (BLOCK_VOIP && lt === "voip") {
+      return {
+        raw: data,
+        result: {
+          valid: false,
+          reason: "voip_blocked",
+          normalized: international_format,
+        },
+      };
+    }
+    if (!ALLOW_LANDLINE && lt === "landline") {
+      return {
+        raw: data,
+        result: {
+          valid: false,
+          reason: "line_type_blocked",
+          normalized: international_format,
+        },
+      };
     }
 
-    const normalized = data.international_format || phone;
-
-    if (
-      valid &&
-      config.blockVoip &&
-      (data.line_type || "").toLowerCase() === "voip"
-    ) {
-      valid = false;
-      reasons.push("Unsupported line type (VOIP)");
-    }
-
+    // Strong pass if numverify says valid and above checks pass
     return {
-      phoneValid: valid,
-      phoneReason: valid ? "" : reasons.join(", "),
-      normalized,
       raw: data,
+      result: { valid: true, reason: "", normalized: international_format },
     };
-  } catch (e) {
-    return {
-      phoneValid: true,
-      phoneReason: "timeout_soft_pass",
-      normalized: phone,
-      raw: null,
-    };
+  } catch (e: any) {
+    return { result: { valid: null, reason: "timeout_soft_pass" } };
   }
+}
+
+// Legacy function for backward compatibility
+export async function validatePhone(phone: string, country?: string) {
+  const { result } = await numverifyCheck(phone, country);
+  return {
+    phoneValid: result.valid,
+    phoneReason: result.reason,
+    normalized: result.normalized,
+    raw: result,
+  };
 }

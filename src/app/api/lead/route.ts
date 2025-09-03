@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateEmailAndPhone } from "@/lib/validate";
+import { validateEmail, validatePhone } from "@/lib/validate";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import { addContactToWorkflow, upsertContact } from "@/lib/leadconnector";
 
@@ -54,19 +54,19 @@ export async function POST(req: NextRequest) {
     if (body.consentTransactional !== true)
       errors.consentTransactional = "Transactional consent required";
 
-    // Revalidate server-side
-    const { emailValid, emailReason, phoneValid, phoneReason } =
-      await validateEmailAndPhone(body.email, body.phone, body.country);
-
-    if (emailValid === false) {
-      errors.email = emailReason || "Email invalid";
+    // Strict revalidation
+    const emailR = await validateEmail(body.email);
+    if (emailR.valid !== true) {
+      errors.email = emailR.reason || "email_invalid";
     }
-    if (phoneValid === false) {
-      errors.phone = phoneReason || "Phone invalid";
+
+    const phoneR = await validatePhone(body.phone, body.country);
+    if (phoneR.valid !== true) {
+      errors.phone = phoneR.reason || "phone_invalid";
     }
 
     if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ ok: false, errors }, { status: 400 });
+      return NextResponse.json({ ok: false, errors }, { status: 422 });
     }
 
     const tags = [
