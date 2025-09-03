@@ -34,13 +34,6 @@
               "validate": "mailboxlayer"
             },
             {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
-            {
               "id": "phone",
               "type": "phone",
               "label": "Phone",
@@ -104,13 +97,6 @@
               "required": true,
               "map": "email",
               "validate": "mailboxlayer"
-            },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
             },
             {
               "id": "phone",
@@ -257,13 +243,7 @@
               "map": "email",
               "validate": "mailboxlayer"
             },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
+
             {
               "id": "phone",
               "type": "phone",
@@ -409,13 +389,7 @@
               "map": "email",
               "validate": "mailboxlayer"
             },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
+
             {
               "id": "phone",
               "type": "phone",
@@ -565,13 +539,7 @@
               "map": "email",
               "validate": "mailboxlayer"
             },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
+
             {
               "id": "phone",
               "type": "phone",
@@ -668,13 +636,7 @@
               "map": "email",
               "validate": "mailboxlayer"
             },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
+
             {
               "id": "phone",
               "type": "phone",
@@ -816,13 +778,7 @@
               "map": "email",
               "validate": "mailboxlayer"
             },
-            {
-              "id": "country",
-              "type": "country",
-              "label": "Country",
-              "required": false,
-              "default": "US"
-            },
+
             {
               "id": "phone",
               "type": "phone",

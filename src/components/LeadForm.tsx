@@ -38,6 +38,10 @@ export default function LeadForm({
   const [emailPending, setEmailPending] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
 
+  // "attempted" flags - only show validation state after user interaction
+  const [emailAttempted, setEmailAttempted] = useState(false);
+  const [phoneAttempted, setPhoneAttempted] = useState(false);
+
   const [country, setCountry] = useState<string>("US");
 
   // Dynamic registry-driven answers
@@ -96,6 +100,10 @@ export default function LeadForm({
     return "border-gray-300 focus:ring-blue-500 focus:border-blue-500";
   }
 
+  // Show validation state only after user interaction
+  const showEmailState = emailPending || emailAttempted;
+  const showPhoneState = phonePending || phoneAttempted;
+
   function Spinner({
     className = "h-4 w-4 text-gray-400",
   }: {
@@ -127,24 +135,32 @@ export default function LeadForm({
 
   const onEmailChange = useCallback((v: string) => {
     setEmail(v);
-    setEmailValid(null);
-    setEmailReason("");
+    if (!v) {
+      setEmailAttempted(false);
+      setEmailValid(null);
+      setEmailReason("");
+    }
   }, []);
 
   const onPhoneChange = useCallback((v: string) => {
     setPhone(v);
-    setPhoneValid(null);
-    setPhoneReason("");
+    if (!v) {
+      setPhoneAttempted(false);
+      setPhoneValid(null);
+      setPhoneReason("");
+    }
   }, []);
 
   const validateEmailField = useCallback(async () => {
     const value = email.trim();
     latestEmail.current = value;
     if (!value) {
+      setEmailAttempted(false);
       setEmailValid(null);
       setEmailReason("");
       return;
     }
+    setEmailAttempted(true);
     if (emailAbort.current) emailAbort.current.abort();
     const ac = new AbortController();
     emailAbort.current = ac;
@@ -174,10 +190,12 @@ export default function LeadForm({
     const value = phone.trim();
     latestPhone.current = value;
     if (!value) {
+      setPhoneAttempted(false);
       setPhoneValid(null);
       setPhoneReason("");
       return;
     }
+    setPhoneAttempted(true);
     if (phoneAbort.current) phoneAbort.current.abort();
     const ac = new AbortController();
     phoneAbort.current = ac;
@@ -365,20 +383,20 @@ export default function LeadForm({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             onBlur={validateEmailField}
-            className={`${INPUT_BASE} ${inputStateClasses(
-              emailValid,
-              emailPending
-            )}`}
+            className={`${INPUT_BASE} ${
+              showEmailState ? inputStateClasses(emailValid, emailPending) : ""
+            }`}
             required
             aria-invalid={emailValid === false}
             aria-describedby="email-help"
             placeholder="you@example.com"
           />
-          {emailPending ? (
+          {showEmailState && emailPending && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
               <Spinner />
             </div>
-          ) : emailValid === true ? (
+          )}
+          {showEmailState && !emailPending && emailValid === true && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-green-600">
               <svg
                 className="h-4 w-4"
@@ -393,33 +411,44 @@ export default function LeadForm({
                 />
               </svg>
             </div>
-          ) : null}
+          )}
         </div>
-        <p
-          id="email-help"
-          className={`text-sm ${
-            emailPending
-              ? "text-gray-500"
-              : emailValid === false
-              ? "text-red-600"
-              : emailValid === true
-              ? "text-green-600"
-              : emailValid === null
-              ? "text-gray-500"
-              : "text-gray-500"
-          }`}
-          aria-live="polite"
-        >
-          {emailPending
-            ? "Validating…"
-            : emailValid === false
-            ? emailReason || "Invalid email address"
-            : emailValid === true
-            ? "Looks good"
-            : emailValid === null
-            ? "Couldn't verify; we'll recheck on submit."
-            : ""}
-        </p>
+        {showEmailState && emailValid === false && (
+          <p
+            id="email-help"
+            className="mt-1 text-sm text-red-600"
+            aria-live="polite"
+          >
+            {emailReason || "Invalid email address"}
+          </p>
+        )}
+        {showEmailState && emailValid === null && (
+          <p
+            id="email-help"
+            className="mt-1 text-sm text-gray-500"
+            aria-live="polite"
+          >
+            Couldn't verify; we'll recheck on submit.
+          </p>
+        )}
+        {showEmailState && emailValid === true && (
+          <p
+            id="email-help"
+            className="mt-1 text-sm text-green-600"
+            aria-live="polite"
+          >
+            Looks good
+          </p>
+        )}
+        {showEmailState && emailPending && (
+          <p
+            id="email-help"
+            className="mt-1 text-sm text-gray-500"
+            aria-live="polite"
+          >
+            Validating…
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5 sm:col-span-2">
@@ -427,10 +456,9 @@ export default function LeadForm({
           Phone <span className="text-red-500">*</span>
         </label>
         <div
-          className={`relative rounded-md border bg-white ${inputStateClasses(
-            phoneValid,
-            phonePending
-          )}`}
+          className={`relative rounded-md border bg-white ${
+            showPhoneState ? inputStateClasses(phoneValid, phonePending) : ""
+          }`}
         >
           <div className="flex items-center gap-2 px-3 py-2 pr-9">
             <select
@@ -459,11 +487,12 @@ export default function LeadForm({
               aria-describedby="phone-help"
             />
           </div>
-          {phonePending ? (
+          {showPhoneState && phonePending && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
               <Spinner />
             </div>
-          ) : phoneValid === true ? (
+          )}
+          {showPhoneState && !phonePending && phoneValid === true && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-green-600">
               <svg
                 className="h-4 w-4"
@@ -478,33 +507,44 @@ export default function LeadForm({
                 />
               </svg>
             </div>
-          ) : null}
+          )}
         </div>
-        <p
-          id="phone-help"
-          className={`text-sm ${
-            phonePending
-              ? "text-gray-500"
-              : phoneValid === false
-              ? "text-red-600"
-              : phoneValid === true
-              ? "text-green-600"
-              : phoneValid === null
-              ? "text-gray-500"
-              : "text-gray-500"
-          }`}
-          aria-live="polite"
-        >
-          {phonePending
-            ? "Validating…"
-            : phoneValid === false
-            ? phoneReason || "Invalid phone number"
-            : phoneValid === true
-            ? "Looks good"
-            : phoneValid === null
-            ? "Couldn't verify; we'll recheck on submit."
-            : ""}
-        </p>
+        {showPhoneState && phoneValid === false && (
+          <p
+            id="phone-help"
+            className="mt-1 text-sm text-red-600"
+            aria-live="polite"
+          >
+            {phoneReason || "Invalid phone number"}
+          </p>
+        )}
+        {showPhoneState && phoneValid === null && (
+          <p
+            id="phone-help"
+            className="mt-1 text-sm text-gray-500"
+            aria-live="polite"
+          >
+            Couldn't verify; we'll recheck on submit.
+          </p>
+        )}
+        {showPhoneState && phoneValid === true && (
+          <p
+            id="phone-help"
+            className="mt-1 text-sm text-green-600"
+            aria-live="polite"
+          >
+            Looks good
+          </p>
+        )}
+        {showPhoneState && phonePending && (
+          <p
+            id="phone-help"
+            className="mt-1 text-sm text-gray-500"
+            aria-live="polite"
+          >
+            Validating…
+          </p>
+        )}
       </div>
 
       {/* Dynamic (non-core) fields from registry */}

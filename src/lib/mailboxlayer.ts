@@ -18,7 +18,7 @@ export async function mailboxlayerCheck(
   url.searchParams.set("access_key", KEY);
   url.searchParams.set("email", email);
   url.searchParams.set("smtp", "1");
-  url.searchParams.set("catch_all", "1");
+  // url.searchParams.set("catch_all", "1");
   url.searchParams.set("format", "1");
 
   const controller = new AbortController();
