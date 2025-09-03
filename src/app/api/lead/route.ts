@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmailAndPhone } from "@/lib/validate";
-import { FORMS } from "@/lib/formsMap";
+import { getFormBySlug } from "@/lib/formsRegistry";
 import { addContactToWorkflow, upsertContact } from "@/lib/leadconnector";
 
 type LeadPayload = {
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const errors: Record<string, string> = {};
-    const form = body.formSlug ? FORMS[body.formSlug] : undefined;
+    const form = body.formSlug ? getFormBySlug(body.formSlug) : undefined;
     if (!form) {
       return NextResponse.json(
         { ok: false, message: "Form not found" },
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       body.consentMarketing ? "MarketingOptIn" : "",
     ].filter(Boolean) as string[];
     const created = await upsertContact({
-      locationId: form.locationId,
+      locationId: form.locationId || "",
       email: body.email,
       phone: body.phone,
       firstName: body.firstName,
@@ -89,7 +89,11 @@ export async function POST(req: NextRequest) {
 
     if (contactId && form.workflowId) {
       try {
-        await addContactToWorkflow(contactId, form.workflowId, form.locationId);
+        await addContactToWorkflow(
+          contactId,
+          form.workflowId,
+          form.locationId || ""
+        );
       } catch (e) {
         console.warn("workflow_enroll_failed", e);
       }
