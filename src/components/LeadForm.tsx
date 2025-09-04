@@ -56,6 +56,9 @@ export default function LeadForm({
   const [submitting, setSubmitting] = useState(false);
   const [emailPending, setEmailPending] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState<{
+    contactId?: string;
+  } | null>(null);
 
   // "attempted" flags - only show validation state after user interaction
   const [emailAttempted, setEmailAttempted] = useState(false);
@@ -348,13 +351,11 @@ export default function LeadForm({
           return;
         }
         // success
-        const result = await res.json();
-
         // Dev logging to verify what was sent
         if (process.env.NODE_ENV !== "production") {
           console.log("[LeadForm] submit success", {
-            ok: result.ok,
-            contactId: result.contactId,
+            ok: data.ok,
+            contactId: data.contactId,
             sentAnswers: answers,
             sentPayload: {
               formSlug: formSlug || "form-testing-n8n",
@@ -370,10 +371,12 @@ export default function LeadForm({
           });
         }
 
+        // Clear form and show success panel
         setFirstName("");
         setLastName("");
         setEmail("");
         setPhone("");
+        setCountry("US");
         setConsentTransactional(false);
         setConsentMarketing(false);
         setEmailValid(null);
@@ -381,7 +384,8 @@ export default function LeadForm({
         setEmailReason("");
         setPhoneReason("");
         setAnswers({});
-        alert("Submitted!");
+        setSubmitSuccess({ contactId: data.contactId });
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } finally {
         setSubmitting(false);
       }
@@ -400,6 +404,41 @@ export default function LeadForm({
       formSlug,
     ]
   );
+
+  if (submitSuccess) {
+    return (
+      <div className="sm:col-span-2" role="status" aria-live="polite">
+        <h1 className="text-xl font-semibold text-gray-900">
+          Thanks! Your request was received.
+        </h1>
+        <p className="mt-2 text-sm text-gray-600">We’ll be in touch shortly.</p>
+        {submitSuccess.contactId ? (
+          <p className="mt-2 text-xs text-gray-500">
+            Reference ID:{" "}
+            <span className="font-mono">{submitSuccess.contactId}</span>
+          </p>
+        ) : null}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSubmitSuccess(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`${BUTTON_BASE} bg-blue-600 text-white hover:bg-blue-700`}
+          >
+            Submit another response
+          </button>
+          <a
+            href="/forms/form-testing-n8n"
+            className={`${BUTTON_BASE} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`}
+          >
+            Back to forms
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
