@@ -4,14 +4,15 @@ const BASE = process.env.LC_BASE_URL || "https://services.leadconnectorhq.com";
 const API_VERSION = process.env.LC_API_VERSION || "2021-07-28";
 const TOKEN = process.env.LC_PRIVATE_TOKEN;
 
-type UpsertPayload = {
+type UpsertArgs = {
   locationId: string;
-  email: string;
-  phone: string;
   firstName: string;
   lastName: string;
+  email?: string;
+  phone?: string;
   tags?: string[];
   source?: string;
+  customFieldsArray?: Array<{ id: string; value: string }>;
 };
 
 function requireEnv(name: string) {
@@ -57,13 +58,49 @@ async function lcFetch(
   return body;
 }
 
-export async function upsertContact(payload: UpsertPayload) {
-  const { locationId, ...contact } = payload;
-  return lcFetch(`/contacts/`, {
-    method: "POST",
+export async function upsertContact(args: UpsertArgs) {
+  const {
     locationId,
-    body: JSON.stringify({ ...contact, locationId }),
+    firstName,
+    lastName,
+    email,
+    phone,
+    tags,
+    source,
+    customFieldsArray = [],
+  } = args;
+
+  const body = {
+    locationId,
+    firstName,
+    lastName,
+    ...(email ? { email } : {}),
+    ...(phone ? { phone } : {}),
+    ...(tags?.length ? { tags } : {}),
+    ...(source ? { source } : {}),
+    ...(customFieldsArray.length ? { customFields: customFieldsArray } : {}),
+  };
+
+  if (process.env.NODE_ENV !== "production") {
+    const scrubbed = {
+      ...body,
+      email: email ? "<redacted>" : undefined,
+      phone: phone ? "<redacted>" : undefined,
+    };
+    console.log("[LC upsert] payload (array shape)", scrubbed);
+  }
+
+  const res = await lcFetch("/contacts/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "Location-Id": locationId,
+    },
+    body: JSON.stringify(body),
   });
+
+  return res;
 }
 
 export async function addContactToWorkflow(

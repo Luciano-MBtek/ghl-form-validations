@@ -302,22 +302,6 @@ export default function LeadForm({
       if (!canSubmit) return;
       setSubmitting(true);
       try {
-        // Build customFields from answers
-        const customFields: { id: string; value: string }[] = [];
-        for (const section of formConfig.sections || []) {
-          for (const field of section.fields || []) {
-            if ("mapCustomFieldId" in field && field.mapCustomFieldId) {
-              const v = answers[field.id];
-              if (v != null && v !== "") {
-                customFields.push({
-                  id: String(field.mapCustomFieldId),
-                  value: String(v),
-                });
-              }
-            }
-          }
-        }
-
         const res = await fetch("/api/lead", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -330,7 +314,7 @@ export default function LeadForm({
             country,
             consentTransactional,
             consentMarketing,
-            customFields,
+            answers, // Send dynamic form answers
           }),
         });
         if (res.status === 429) {
@@ -364,6 +348,28 @@ export default function LeadForm({
           return;
         }
         // success
+        const result = await res.json();
+
+        // Dev logging to verify what was sent
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[LeadForm] submit success", {
+            ok: result.ok,
+            contactId: result.contactId,
+            sentAnswers: answers,
+            sentPayload: {
+              formSlug: formSlug || "form-testing-n8n",
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              email: "<redacted>",
+              phone: "<redacted>",
+              country,
+              consentTransactional,
+              consentMarketing,
+              answers,
+            },
+          });
+        }
+
         setFirstName("");
         setLastName("");
         setEmail("");

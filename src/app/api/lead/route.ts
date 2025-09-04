@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import { addContactToWorkflow, upsertContact } from "@/lib/leadconnector";
+import { resolveOptionLabel } from "@/lib/options";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,8 @@ type LeadPayload = {
   consentTransactional: boolean;
   consentMarketing?: boolean;
   country?: string;
-  customFields?: { id: string; value: string }[];
+  answers?: Record<string, any>; // Dynamic form answers
+  customFields?: { id: string; value: string }[]; // Legacy support
 };
 
 export async function POST(req: NextRequest) {
@@ -71,17 +73,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, errors }, { status: 422 });
     }
 
-    // Build tags with confidence signals
+    // ---- Build customFields as ARRAY ----
+    const fieldDefs = form.sections?.flatMap((s: any) => s.fields) ?? [];
+    const answers = (body as any).answers ?? {};
+    const customFieldsArray: Array<{ id: string; value: string }> = [];
+    const extraTags: string[] = [];
+
+    for (const f of fieldDefs) {
+      if (!f.mapCustomFieldId) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[lead] skipping field without mapCustomFieldId", {
+            key: f.id,
+            type: f.type,
+          });
+        }
+        continue;
+      }
+      if (!(f.id in answers)) continue;
+
+      const raw = answers[f.id];
+
+      // radio/select - resolve to option label
+      if (f.type === "radio" || f.type === "select") {
+        const v = resolveOptionLabel(raw, f.options);
+        if (v == null) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[customField] unknown option", {
+              key: f.id,
+              raw,
+              allowed: (f.options ?? []).map((o: any) => o.label),
+            });
+          }
+          extraTags.push("UnknownOption");
+          customFieldsArray.push({
+            id: f.mapCustomFieldId,
+            value: String(raw),
+          });
+        } else {
+          customFieldsArray.push({ id: f.mapCustomFieldId, value: v });
+        }
+        continue;
+      }
+
+      // checkbox/checkbox-group → resolve each to label, then join
+      if (f.type === "checkbox" || f.type === "checkbox-group") {
+        const arr = Array.isArray(raw) ? raw : [raw];
+        const labels = arr.map(
+          (r) => resolveOptionLabel(r, f.options) ?? String(r)
+        );
+        const joined = labels.join(", ");
+        customFieldsArray.push({ id: f.mapCustomFieldId, value: joined });
+        continue;
+      }
+
+      // text/textarea/number/etc → stringify
+      customFieldsArray.push({ id: f.mapCustomFieldId, value: String(raw) });
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[lead] final customFields (labels):", customFieldsArray);
+    }
+
     const tags = [
       ...(form.tags || []),
+      ...extraTags,
       body.consentMarketing ? "MarketingOptIn" : null,
-      emailR.confidence === "low" ? "EmailLowScore" : null,
-      emailR.confidence === "medium" ? "EmailMediumScore" : null,
-      emailR.confidence === "unknown" ? "EmailUnknown" : null,
-      phoneR.confidence === "low" ? "PhoneLow" : null,
-      phoneR.confidence === "unknown" ? "PhoneUnknown" : null,
-      phoneR.lineType === "voip" ? "PhoneVOIP" : null,
+      emailR.valid === null ? "EmailUnknown" : null,
+      phoneR.valid === null ? "PhoneUnknown" : null,
     ].filter(Boolean) as string[];
+
     const created = await upsertContact({
       locationId: form.locationId || "",
       email: body.email,
@@ -90,8 +150,7 @@ export async function POST(req: NextRequest) {
       lastName: body.lastName,
       tags,
       source: form.name,
-      // @ts-ignore - our client accepts extra fields transparently
-      customFields: body.customFields || [],
+      customFieldsArray, // <— send array shape
     });
     const contactId =
       created?.contact?.id || created?.contact?._id || created?.id;

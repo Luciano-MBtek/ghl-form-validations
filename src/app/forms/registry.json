@@ -133,7 +133,7 @@
                 },
                 { "value": "heat_pump_only", "label": "Heat Pump only" }
               ],
-              "mapCustomFieldId": "CF_FORM1_SYSTEM_SCOPE"
+              "mapCustomFieldIdEnv": "FORM1_SYSTEM_SCOPE_ID"
             },
             {
               "id": "propertyType",
@@ -144,7 +144,7 @@
                 { "value": "business", "label": "Business" },
                 { "value": "home", "label": "Home" }
               ],
-              "mapCustomFieldId": "CF_FORM1_PROPERTY_TYPE"
+              "mapCustomFieldIdEnv": "FORM1_PROPERTY_TYPE_ID"
             },
             {
               "id": "squareFeet",
@@ -157,7 +157,7 @@
                 { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
                 { "value": "3001+", "label": "+ 3001 sqft" }
               ],
-              "mapCustomFieldId": "CF_FORM1_SQUARE_FEET"
+              "mapCustomFieldIdEnv": "FORM1_SQUARE_FEET_ID"
             },
             {
               "id": "budget",
@@ -171,7 +171,7 @@
                 { "value": "5001-6999", "label": "$5,001-$6,999" },
                 { "value": "7000+", "label": "+ $7000" }
               ],
-              "mapCustomFieldId": "CF_FORM1_BUDGET"
+              "mapCustomFieldIdEnv": "FORM1_BUDGET_ID"
             },
             {
               "id": "startTimeline",
@@ -194,7 +194,7 @@
                 },
                 { "value": "just_exploring", "label": "Just Exploring" }
               ],
-              "mapCustomFieldId": "CF_FORM1_START_TIMELINE"
+              "mapCustomFieldIdEnv": "FORM1_START_TIMELINE_ID"
             }
           ]
         },
@@ -279,7 +279,7 @@
                 { "value": "gas", "label": "Gas Boiler" },
                 { "value": "oil", "label": "Oil Boiler" }
               ],
-              "mapCustomFieldId": "CF_FORM2_BOILER_TYPE"
+              "mapCustomFieldIdEnv": "FORM2_BOILER_TYPE_ID"
             },
             {
               "id": "propertyType",
@@ -290,7 +290,7 @@
                 { "value": "business", "label": "Business" },
                 { "value": "home", "label": "Home" }
               ],
-              "mapCustomFieldId": "CF_FORM2_PROPERTY_TYPE"
+              "mapCustomFieldIdEnv": "FORM2_PROPERTY_TYPE_ID"
             },
             {
               "id": "squareFeet",
@@ -303,7 +303,7 @@
                 { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
                 { "value": "3001+", "label": "+ 3001 sqft" }
               ],
-              "mapCustomFieldId": "CF_FORM2_SQUARE_FEET"
+              "mapCustomFieldIdEnv": "FORM2_SQUARE_FEET_ID"
             },
             {
               "id": "budget",
@@ -317,7 +317,7 @@
                 { "value": "5001-6999", "label": "$5,001-$6,999" },
                 { "value": "7000+", "label": "+ $7000" }
               ],
-              "mapCustomFieldId": "CF_FORM2_BUDGET"
+              "mapCustomFieldIdEnv": "FORM2_BUDGET_ID"
             },
             {
               "id": "startTimeline",
@@ -340,7 +340,7 @@
                 },
                 { "value": "just_exploring", "label": "Just Exploring" }
               ],
-              "mapCustomFieldId": "CF_FORM2_START_TIMELINE"
+              "mapCustomFieldIdEnv": "FORM2_START_TIMELINE_ID"
             }
           ]
         },
@@ -429,7 +429,7 @@
                   "label": "Air Handler Unit only"
                 }
               ],
-              "mapCustomFieldId": "CF_FORM3_SYSTEM_SCOPE"
+              "mapCustomFieldIdEnv": "FORM3_SYSTEM_SCOPE_ID"
             },
             {
               "id": "propertyType",
@@ -440,7 +440,7 @@
                 { "value": "business", "label": "Business" },
                 { "value": "home", "label": "Home" }
               ],
-              "mapCustomFieldId": "CF_FORM3_PROPERTY_TYPE"
+              "mapCustomFieldIdEnv": "FORM3_PROPERTY_TYPE_ID"
             },
             {
               "id": "squareFeet",
@@ -453,7 +453,7 @@
                 { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
                 { "value": "3001+", "label": "+ 3001 sqft" }
               ],
-              "mapCustomFieldId": "CF_FORM3_SQUARE_FEET"
+              "mapCustomFieldIdEnv": "FORM3_SQUARE_FEET_ID"
             },
             {
               "id": "budget",
@@ -467,7 +467,7 @@
                 { "value": "5001-6999", "label": "$5,001-$6,999" },
                 { "value": "7000+", "label": "+ $7000" }
               ],
-              "mapCustomFieldId": "CF_FORM3_BUDGET"
+              "mapCustomFieldIdEnv": "FORM3_BUDGET_ID"
             },
             {
               "id": "startTimeline",
@@ -490,7 +490,7 @@
                 },
                 { "value": "just_exploring", "label": "Just Exploring" }
               ],
-              "mapCustomFieldId": "CF_FORM3_START_TIMELINE"
+              "mapCustomFieldIdEnv": "FORM3_START_TIMELINE_ID"
             }
           ]
         },
@@ -585,7 +585,7 @@
                 { "value": "vendor_program", "label": "MBTEK Vendor Program" },
                 { "value": "general_question", "label": "General question" }
               ],
-              "mapCustomFieldId": "CF_FORMCU_PURPOSE"
+              "mapCustomFieldIdEnv": "CONTACTUS_PURPOSE_ID"
             },
             {
               "id": "message",
@@ -594,7 +594,7 @@
               "required": true,
               "rows": 5,
               "placeholder": "Tell us how we can help…",
-              "mapCustomFieldId": "CF_FORMCU_MESSAGE"
+              "mapCustomFieldIdEnv": "CONTACTUS_MESSAGE_ID"
             }
           ]
         },
@@ -675,7 +675,7 @@
                 { "value": "FCU", "label": "FCU" },
                 { "value": "Water Tank", "label": "Water Tank" }
               ],
-              "mapCustomFieldId": "CF_GEN_SYSTEM_SCOPE"
+              "mapCustomFieldIdEnv": "GENERAL_COMPONENTS_ID"
             },
             {
               "id": "propertyType",
@@ -686,7 +686,7 @@
                 { "value": "business", "label": "Business" },
                 { "value": "home", "label": "Home" }
               ],
-              "mapCustomFieldId": "CF_GEN_PROPERTY_TYPE"
+              "mapCustomFieldIdEnv": "GENERAL_PROPERTY_TYPE_ID"
             },
             {
               "id": "budget",
@@ -700,7 +700,7 @@
                 { "value": "5001-6999", "label": "$5,001-$6,999" },
                 { "value": "7000+", "label": "+ $7000" }
               ],
-              "mapCustomFieldId": "CF_GEN_BUDGET"
+              "mapCustomFieldIdEnv": "GENERAL_BUDGET_ID"
             },
             {
               "id": "squareFeet",
@@ -713,7 +713,7 @@
                 { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
                 { "value": "3001+", "label": "+ 3001 sqft" }
               ],
-              "mapCustomFieldId": "CF_GEN_SQUARE_FEET"
+              "mapCustomFieldIdEnv": "GENERAL_SQUARE_FEET_ID"
             },
             {
               "id": "startTimeline",
@@ -736,7 +736,7 @@
                 },
                 { "value": "just_exploring", "label": "Just Exploring" }
               ],
-              "mapCustomFieldId": "CF_GEN_START_TIMELINE"
+              "mapCustomFieldIdEnv": "GENERAL_START_TIMELINE_ID"
             }
           ]
         },
@@ -817,7 +817,7 @@
                 { "value": "FCU", "label": "FCU" },
                 { "value": "Water Tank", "label": "Water Tank" }
               ],
-              "mapCustomFieldId": "CF_GADS_SYSTEM_SCOPE"
+              "mapCustomFieldIdEnv": "GOOGLE_COMPONENTS_ID"
             },
             {
               "id": "propertyType",
@@ -828,7 +828,7 @@
                 { "value": "business", "label": "Business" },
                 { "value": "home", "label": "Home" }
               ],
-              "mapCustomFieldId": "CF_GADS_PROPERTY_TYPE"
+              "mapCustomFieldIdEnv": "GOOGLE_PROPERTY_TYPE_ID"
             },
             {
               "id": "budget",
@@ -842,7 +842,7 @@
                 { "value": "5001-6999", "label": "$5,001-$6,999" },
                 { "value": "7000+", "label": "+ $7000" }
               ],
-              "mapCustomFieldId": "CF_GADS_BUDGET"
+              "mapCustomFieldIdEnv": "GOOGLE_BUDGET_ID"
             },
             {
               "id": "squareFeet",
@@ -855,7 +855,7 @@
                 { "value": "1501-3000", "label": "1501 sqft - 3000 sqft" },
                 { "value": "3001+", "label": "+ 3001 sqft" }
               ],
-              "mapCustomFieldId": "CF_GADS_SQUARE_FEET"
+              "mapCustomFieldIdEnv": "GOOGLE_SQUARE_FEET_ID"
             },
             {
               "id": "startTimeline",
@@ -878,7 +878,7 @@
                 },
                 { "value": "just_exploring", "label": "Just Exploring" }
               ],
-              "mapCustomFieldId": "CF_GADS_START_TIMELINE"
+              "mapCustomFieldIdEnv": "GOOGLE_START_TIMELINE_ID"
             }
           ]
         },

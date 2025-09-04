@@ -96,6 +96,8 @@ LeadConnector (server-side only):
 - `LC_LOCATION_ID` (required via registry) – resolved in `src/lib/formsRegistry.ts` from `locationIdEnv`.
 - `LC_WORKFLOW_ID` (optional via registry) – resolved similarly from `workflowIdEnv`.
 
+**Note**: LeadConnector radio/select/checkbox custom fields require the exact option string. This code maps internal values to option labels before sending.
+
 Validation providers:
 
 - `MAILBOXLAYER_API_KEY` (optional; soft-pass if missing) – `src/lib/mailboxlayer.ts`.
