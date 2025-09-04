@@ -9,6 +9,16 @@ High-level flow:
 - On submit, the client posts to `POST /api/lead`; the server revalidates and upserts/updates a contact in LeadConnector with tags and optional workflow enrollment.
 - Client UI shows pending spinners, green checks on valid, and red errors on invalid; stale responses are ignored using AbortController and echoed values.
 
+## Validation Strategy
+
+The app uses a **confidence-based validation approach** that prioritizes user experience while maintaining data quality:
+
+- **Score is a signal only**: Email scores from Mailboxlayer are used for confidence buckets but don't block submission
+- **Only block on definitive undeliverable signals**: Bad format, no MX records, SMTP failures, or (optionally) disposable/role emails
+- **Confidence buckets**: `good` (score ≥ 0.80), `medium` (score ≥ 0.50), `low` (score < 0.50), `unknown` (timeout/error)
+- **GHL tags for workflow segmentation**: Contacts receive tags like `EmailLowScore`, `EmailUnknown`, `PhoneVOIP` for conditional workflow routing
+- **UI feedback**: Green "Looks good" for high confidence, gray "Looks okay; we'll confirm after submit" for uncertain cases
+
 ## Tech Stack
 
 - Next.js: 15.5.2 (App Router)

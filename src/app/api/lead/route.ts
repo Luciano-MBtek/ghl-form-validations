@@ -56,14 +56,14 @@ export async function POST(req: NextRequest) {
     if (body.consentTransactional !== true)
       errors.consentTransactional = "Transactional consent required";
 
-    // Strict revalidation
+    // Revalidation - only block on hard failures
     const emailR = await validateEmail(body.email);
-    if (emailR.valid !== true) {
+    if (emailR.valid === false) {
       errors.email = emailR.reason || "email_invalid";
     }
 
     const phoneR = await validatePhone(body.phone, body.country);
-    if (phoneR.valid !== true) {
+    if (phoneR.valid === false) {
       errors.phone = phoneR.reason || "phone_invalid";
     }
 
@@ -71,9 +71,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, errors }, { status: 422 });
     }
 
+    // Build tags with confidence signals
     const tags = [
       ...(form.tags || []),
-      body.consentMarketing ? "MarketingOptIn" : "",
+      body.consentMarketing ? "MarketingOptIn" : null,
+      emailR.confidence === "low" ? "EmailLowScore" : null,
+      emailR.confidence === "medium" ? "EmailMediumScore" : null,
+      emailR.confidence === "unknown" ? "EmailUnknown" : null,
+      phoneR.confidence === "low" ? "PhoneLow" : null,
+      phoneR.confidence === "unknown" ? "PhoneUnknown" : null,
+      phoneR.lineType === "voip" ? "PhoneVOIP" : null,
     ].filter(Boolean) as string[];
     const created = await upsertContact({
       locationId: form.locationId || "",

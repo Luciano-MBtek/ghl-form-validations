@@ -1,9 +1,11 @@
 import {
-  EMAIL_SCORE_THRESHOLD,
+  EMAIL_SCORE_GOOD,
+  EMAIL_SCORE_MED,
   VALIDATION_TIMEOUT_MS,
   BLOCK_ROLE_EMAILS,
+  BLOCK_DISPOSABLE,
 } from "./config";
-import type { EmailResult } from "./validationTypes";
+import type { EmailResult, Confidence } from "./validationTypes";
 
 const API = "https://apilayer.net/api/check";
 const KEY = process.env.MAILBOXLAYER_API_KEY;
@@ -12,7 +14,13 @@ export async function mailboxlayerCheck(
   email: string
 ): Promise<{ raw?: any; result: EmailResult }> {
   if (!KEY) {
-    return { result: { valid: null, reason: "provider_missing" } };
+    return {
+      result: {
+        valid: null,
+        reason: "provider_missing",
+        confidence: "unknown",
+      },
+    };
   }
   const url = new URL(API);
   url.searchParams.set("access_key", KEY);
@@ -46,43 +54,81 @@ export async function mailboxlayerCheck(
     } = data || {};
 
     if (error) {
-      return { raw: data, result: { valid: null, reason: "provider_missing" } };
+      return {
+        raw: data,
+        result: {
+          valid: null,
+          reason: "provider_error",
+          confidence: "unknown",
+        },
+      };
     }
 
-    // strong pass policy
-    const meetsScore =
-      typeof score === "number" ? score >= EMAIL_SCORE_THRESHOLD : true;
-    const roleBlocked = !!role && BLOCK_ROLE_EMAILS;
+    // Compute confidence from score
+    const computeConfidence = (score?: number): Confidence => {
+      if (typeof score !== "number") return "unknown";
+      if (score >= EMAIL_SCORE_GOOD) return "good";
+      if (score >= EMAIL_SCORE_MED) return "medium";
+      return "low";
+    };
 
-    const strongPass =
-      format_valid === true &&
-      mx_found === true &&
-      smtp_check === true &&
-      catch_all === false &&
-      !disposable &&
-      !roleBlocked &&
-      meetsScore;
+    // Hard blocking conditions only
+    const badFormat = format_valid !== true;
+    const noMx = mx_found !== true;
+    const smtpFail = smtp_check === false;
+    const disposableBlocked = disposable && BLOCK_DISPOSABLE;
+    const roleBlocked = role && BLOCK_ROLE_EMAILS;
 
-    if (strongPass) return { raw: data, result: { valid: true, reason: "" } };
+    // Only block on definitive undeliverable signals
+    if (badFormat || noMx || smtpFail || disposableBlocked || roleBlocked) {
+      const reason = badFormat
+        ? "bad_format"
+        : noMx
+        ? "no_mx"
+        : smtpFail
+        ? "smtp_fail"
+        : disposableBlocked
+        ? "disposable"
+        : "role";
 
-    // derive best reason
-    const reason = roleBlocked
-      ? "role"
-      : disposable
-      ? "disposable"
-      : catch_all === true
-      ? "catch_all"
-      : smtp_check === false
-      ? "smtp_fail"
-      : mx_found === false
-      ? "mx_not_found"
-      : !meetsScore
-      ? "low_score"
-      : "verification_failed";
+      return {
+        raw: data,
+        result: {
+          valid: false,
+          reason,
+          confidence: "low",
+          score,
+          disposable,
+          role,
+          catchAll: catch_all,
+          domain: email.split("@")[1],
+        },
+      };
+    }
 
-    return { raw: data, result: { valid: false, reason } };
+    // Everything else is valid (including low scores, catch-all, etc.)
+    const confidence = computeConfidence(score);
+    return {
+      raw: data,
+      result: {
+        valid: true,
+        reason: "",
+        confidence,
+        score,
+        disposable,
+        role,
+        catchAll: catch_all,
+        domain: email.split("@")[1],
+      },
+    };
   } catch (e: any) {
-    return { result: { valid: null, reason: "timeout_soft_pass" } };
+    return {
+      result: {
+        valid: null,
+        reason: "timeout_soft_pass",
+        confidence: "unknown",
+      },
+    };
   }
 }
 

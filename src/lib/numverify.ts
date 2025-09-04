@@ -1,5 +1,5 @@
 import { BLOCK_VOIP, ALLOW_LANDLINE, VALIDATION_TIMEOUT_MS } from "./config";
-import type { PhoneResult } from "./validationTypes";
+import type { PhoneResult, Confidence } from "./validationTypes";
 
 const API = "http://apilayer.net/api/validate";
 const KEY = process.env.NUMVERIFY_API_KEY;
@@ -15,7 +15,13 @@ export async function numverifyCheck(
   country?: string
 ): Promise<{ raw?: any; result: PhoneResult }> {
   if (!KEY) {
-    return { result: { valid: null, reason: "provider_missing" } };
+    return {
+      result: {
+        valid: null,
+        reason: "provider_missing",
+        confidence: "unknown",
+      },
+    };
   }
 
   const url = new URL(API);
@@ -39,7 +45,10 @@ export async function numverifyCheck(
     const { valid, international_format, country_code, line_type } = data || {};
 
     if (valid !== true) {
-      return { raw: data, result: { valid: false, reason: "invalid_number" } };
+      return {
+        raw: data,
+        result: { valid: false, reason: "invalid_number", confidence: "low" },
+      };
     }
 
     if (
@@ -49,39 +58,62 @@ export async function numverifyCheck(
     ) {
       return {
         raw: data,
-        result: { valid: false, reason: "country_mismatch" },
+        result: { valid: false, reason: "country_mismatch", confidence: "low" },
       };
     }
 
     const lt = (line_type || "").toLowerCase(); // 'mobile' | 'landline' | 'voip' | '' (unknown on free plan)
-    if (BLOCK_VOIP && lt === "voip") {
-      return {
-        raw: data,
-        result: {
-          valid: false,
-          reason: "voip_blocked",
-          normalized: international_format,
-        },
-      };
-    }
-    if (!ALLOW_LANDLINE && lt === "landline") {
+
+    // Compute confidence based on line type and blocking rules
+    let confidence: Confidence = "good";
+    if (lt === "voip" && !BLOCK_VOIP) {
+      confidence = "medium"; // VOIP allowed but lower confidence
+    } else if (lt === "landline" && !ALLOW_LANDLINE) {
       return {
         raw: data,
         result: {
           valid: false,
           reason: "line_type_blocked",
+          confidence: "low",
+          lineType: lt,
+          country: country_code,
+          normalized: international_format,
+        },
+      };
+    } else if (lt === "voip" && BLOCK_VOIP) {
+      return {
+        raw: data,
+        result: {
+          valid: false,
+          reason: "voip_blocked",
+          confidence: "low",
+          lineType: lt,
+          country: country_code,
           normalized: international_format,
         },
       };
     }
 
-    // Strong pass if numverify says valid and above checks pass
+    // Valid number
     return {
       raw: data,
-      result: { valid: true, reason: "", normalized: international_format },
+      result: {
+        valid: true,
+        reason: "",
+        confidence,
+        lineType: lt,
+        country: country_code,
+        normalized: international_format,
+      },
     };
   } catch (e: any) {
-    return { result: { valid: null, reason: "timeout_soft_pass" } };
+    return {
+      result: {
+        valid: null,
+        reason: "timeout_soft_pass",
+        confidence: "unknown",
+      },
+    };
   }
 }
 

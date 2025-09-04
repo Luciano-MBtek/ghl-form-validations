@@ -1,11 +1,18 @@
 export const VALIDATION_TIMEOUT_MS = 5000;
 
-// Email policy
-export const EMAIL_SCORE_THRESHOLD = 0.85;
+// Email confidence thresholds
+export const EMAIL_SCORE_GOOD = Number(process.env.EMAIL_SCORE_GOOD ?? 0.8);
+export const EMAIL_SCORE_MED = Number(process.env.EMAIL_SCORE_MED ?? 0.5);
+
+// Email blocking policy
 export const BLOCK_ROLE_EMAILS = true;
+export const BLOCK_DISPOSABLE =
+  (process.env.BLOCK_DISPOSABLE ?? "false") === "true";
+// IMPORTANT: Score is NOT a hard gate now
+export const EMAIL_BLOCK_ON_SCORE = false;
 
 // Phone policy
-export const BLOCK_VOIP = true;
+export const BLOCK_VOIP = (process.env.BLOCK_VOIP ?? "false") === "true";
 export const ALLOW_LANDLINE = true; // set to false if you want only mobile
 
 // Email fallback policy

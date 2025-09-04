@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       emailResp = {
         emailValid: r.valid,
         emailReason: r.reason,
+        emailConfidence: r.confidence,
         echoEmail: email,
       };
     }
@@ -38,6 +39,8 @@ export async function POST(req: Request) {
       phoneResp = {
         phoneValid: r.valid,
         phoneReason: r.reason,
+        phoneConfidence: r.confidence,
+        phoneLineType: r.lineType,
         echoPhone: phone,
       };
     }

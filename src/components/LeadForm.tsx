@@ -6,8 +6,11 @@ import type { FormConfig } from "@/lib/formsRegistry";
 type ValidateResponse = {
   emailValid?: boolean | null;
   emailReason?: string;
+  emailConfidence?: "good" | "medium" | "low" | "unknown";
   phoneValid?: boolean | null;
   phoneReason?: string;
+  phoneConfidence?: "good" | "medium" | "low" | "unknown";
+  phoneLineType?: string;
   echoEmail?: string;
   echoPhone?: string;
 };
@@ -36,8 +39,15 @@ export default function LeadForm({
   type ValidState = boolean | null;
   const [emailValid, setEmailValid] = useState<ValidState>(null);
   const [emailReason, setEmailReason] = useState<string>("");
+  const [emailConfidence, setEmailConfidence] = useState<
+    "good" | "medium" | "low" | "unknown"
+  >("unknown");
   const [phoneValid, setPhoneValid] = useState<ValidState>(null);
   const [phoneReason, setPhoneReason] = useState<string>("");
+  const [phoneConfidence, setPhoneConfidence] = useState<
+    "good" | "medium" | "low" | "unknown"
+  >("unknown");
+  const [phoneLineType, setPhoneLineType] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [emailPending, setEmailPending] = useState(false);
@@ -78,7 +88,8 @@ export default function LeadForm({
   const canSubmit = useMemo(() => {
     const requiredOk =
       firstName.trim() && lastName.trim() && consentTransactional;
-    const validationsOk = emailValid === true && phoneValid === true;
+    // Only block on hard failures (false), allow uncertain cases (null) and valid (true)
+    const validationsOk = emailValid !== false && phoneValid !== false;
     const nonePending = !emailPending && !phonePending && !submitting;
     return Boolean(requiredOk && validationsOk && nonePending);
   }, [
@@ -182,6 +193,7 @@ export default function LeadForm({
       if ((data.echoEmail ?? value) !== value) return; // stale
       setEmailValid(data.emailValid ?? null);
       setEmailReason(data.emailReason || "");
+      setEmailConfidence(data.emailConfidence || "unknown");
     } catch (e: any) {
       if (e.name === "AbortError") return;
       setEmailValid(null);
@@ -217,6 +229,8 @@ export default function LeadForm({
       if ((data.echoPhone ?? value) !== value) return; // stale
       setPhoneValid(data.phoneValid ?? null);
       setPhoneReason(data.phoneReason || "");
+      setPhoneConfidence(data.phoneConfidence || "unknown");
+      setPhoneLineType(data.phoneLineType || "");
     } catch (e: any) {
       if (e.name === "AbortError") return;
       setPhoneValid(null);
@@ -439,10 +453,14 @@ export default function LeadForm({
         {showEmailState && emailValid === true && (
           <p
             id="email-help"
-            className="mt-1 text-sm text-green-600"
+            className={`mt-1 text-sm ${
+              emailConfidence === "good" ? "text-green-600" : "text-gray-500"
+            }`}
             aria-live="polite"
           >
-            Looks good
+            {emailConfidence === "good"
+              ? "Looks good"
+              : "Looks okay; we'll confirm after submit."}
           </p>
         )}
         {showEmailState && emailPending && (
@@ -535,10 +553,16 @@ export default function LeadForm({
         {showPhoneState && phoneValid === true && (
           <p
             id="phone-help"
-            className="mt-1 text-sm text-green-600"
+            className={`mt-1 text-sm ${
+              phoneConfidence === "good" ? "text-green-600" : "text-gray-500"
+            }`}
             aria-live="polite"
           >
-            Looks good
+            {phoneConfidence === "good"
+              ? "Looks good"
+              : phoneLineType === "voip"
+              ? "VOIP number; we'll confirm after submit."
+              : "Looks okay; we'll confirm after submit."}
           </p>
         )}
         {showPhoneState && phonePending && (

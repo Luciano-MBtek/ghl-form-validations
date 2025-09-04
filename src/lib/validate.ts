@@ -82,15 +82,26 @@ export function isPlausiblePhoneBare(input: string): boolean {
 }
 
 export async function validateEmail(email?: string): Promise<EmailResult> {
-  if (!email?.trim()) return { valid: false, reason: "empty" };
-  if (!isPlausibleEmail(email)) return { valid: false, reason: "bad_format" };
+  if (!email?.trim())
+    return { valid: false, reason: "empty", confidence: "low" };
+  if (!isPlausibleEmail(email))
+    return { valid: false, reason: "bad_format", confidence: "low" };
 
   const normalizedEmail = email.trim().toLowerCase();
   const cacheKey = `email:${normalizedEmail}`;
 
   const cached = getCache(cacheKey);
   if (cached) {
-    return { valid: cached.emailValid, reason: cached.emailReason };
+    return {
+      valid: cached.emailValid,
+      reason: cached.emailReason,
+      confidence: cached.emailConfidence || "unknown",
+      score: cached.emailScore,
+      disposable: cached.emailDisposable,
+      role: cached.emailRole,
+      catchAll: cached.emailCatchAll,
+      domain: cached.emailDomain,
+    };
   }
 
   const { result } = await mailboxlayerCheck(normalizedEmail);
@@ -107,13 +118,23 @@ export async function validateEmail(email?: string): Promise<EmailResult> {
     if (domain) {
       // Check trusted domains first
       if (ENABLE_TRUSTED_EMAIL_FALLBACK && TRUSTED_EMAIL_DOMAINS.has(domain)) {
-        finalResult = { valid: true, reason: "provisional_trusted" };
+        finalResult = {
+          valid: true,
+          reason: "provisional_trusted",
+          confidence: "good",
+          domain,
+        };
       }
       // Check MX records for other domains
       else if (ENABLE_MX_FALLBACK && !isRoleEmail(normalizedEmail)) {
         const hasMxRecords = await hasMx(domain);
         if (hasMxRecords) {
-          finalResult = { valid: true, reason: "provisional_mx" };
+          finalResult = {
+            valid: true,
+            reason: "provisional_mx",
+            confidence: "medium",
+            domain,
+          };
         }
       }
     }
@@ -124,6 +145,12 @@ export async function validateEmail(email?: string): Promise<EmailResult> {
     {
       emailValid: finalResult.valid,
       emailReason: finalResult.reason,
+      emailConfidence: finalResult.confidence,
+      emailScore: finalResult.score,
+      emailDisposable: finalResult.disposable,
+      emailRole: finalResult.role,
+      emailCatchAll: finalResult.catchAll,
+      emailDomain: finalResult.domain,
     },
     15 * 60 * 1000
   ); // 15 minutes
@@ -135,9 +162,10 @@ export async function validatePhone(
   phone?: string,
   country?: string
 ): Promise<PhoneResult> {
-  if (!phone?.trim()) return { valid: false, reason: "empty" };
+  if (!phone?.trim())
+    return { valid: false, reason: "empty", confidence: "low" };
   if (!isPlausiblePhoneBare(phone))
-    return { valid: false, reason: "bad_format" };
+    return { valid: false, reason: "bad_format", confidence: "low" };
 
   const normalizedPhone = phone.trim();
   const digits = normalizedPhone.replace(/[^\d+]/g, "");
@@ -149,6 +177,9 @@ export async function validatePhone(
     return {
       valid: cached.phoneValid,
       reason: cached.phoneReason,
+      confidence: cached.phoneConfidence || "unknown",
+      lineType: cached.phoneLineType,
+      country: cached.phoneCountry,
       normalized: cached.normalizedPhone,
     };
   }
@@ -159,6 +190,9 @@ export async function validatePhone(
     {
       phoneValid: result.valid,
       phoneReason: result.reason,
+      phoneConfidence: result.confidence,
+      phoneLineType: result.lineType,
+      phoneCountry: result.country,
       normalizedPhone: result.normalized,
     },
     15 * 60 * 1000
@@ -179,6 +213,7 @@ export async function validateEmailAndPhone(
     const emailResult = await validateEmail(email);
     result.emailValid = emailResult.valid;
     result.emailReason = emailResult.reason;
+    result.emailConfidence = emailResult.confidence;
     result.echoEmail = email;
   }
 
@@ -186,6 +221,8 @@ export async function validateEmailAndPhone(
     const phoneResult = await validatePhone(phone, country);
     result.phoneValid = phoneResult.valid;
     result.phoneReason = phoneResult.reason;
+    result.phoneConfidence = phoneResult.confidence;
+    result.phoneLineType = phoneResult.lineType;
     result.normalizedPhone = phoneResult.normalized;
     result.echoPhone = phone;
   }

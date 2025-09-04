@@ -1,12 +1,22 @@
 export type TriValid = true | false | null;
+export type Confidence = "good" | "medium" | "low" | "unknown";
 
-export type EmailResult = {
-  valid: TriValid;
-  reason: string; // e.g., 'bad_format', 'mx_not_found', 'smtp_fail', 'catch_all', 'low_score', 'disposable', 'role', 'provider_missing', 'timeout_soft_pass'
-};
+export interface EmailResult {
+  valid: TriValid; // hard validity: false only for format/no-mx/smtp-fail/(optional disposable)
+  reason?: string; // e.g., "bad_format", "no_mx", "smtp_fail", "timeout_soft_pass", "provider_error"
+  score?: number; // mailboxlayer score if present
+  confidence: Confidence; // derived from score or provider state
+  disposable?: boolean;
+  role?: boolean;
+  catchAll?: boolean;
+  domain?: string;
+}
 
-export type PhoneResult = {
+export interface PhoneResult {
   valid: TriValid;
-  reason: string; // e.g., 'bad_format', 'country_mismatch', 'line_type_blocked', 'voip_blocked', 'provider_missing', 'timeout_soft_pass'
+  reason?: string;
+  lineType?: string; // VOIP, mobile, landline, etc.
+  confidence: Confidence; // simple mapping; valid true => good, null => unknown, etc.
+  country?: string;
   normalized?: string; // E.164 if available
-};
+}
