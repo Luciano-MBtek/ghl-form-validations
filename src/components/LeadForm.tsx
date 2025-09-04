@@ -104,13 +104,14 @@ export default function LeadForm({
   const latestEmail = useRef<string>("");
   const latestPhone = useRef<string>("");
 
-  const canSubmit = useMemo(() => {
-    const requiredOk =
-      firstName.trim() && lastName.trim() && consentTransactional;
-    // Only block on hard failures (false), allow uncertain cases (null) and valid (true)
-    const validationsOk = emailValid !== false && phoneValid !== false;
-    const nonePending = !emailPending && !phonePending && !submitting;
-    return Boolean(requiredOk && validationsOk && nonePending);
+  const submitDisabled = useMemo(() => {
+    const emailOk = emailValid === true;
+    const phoneOk = phoneValid === true;
+    const requiredOk = Boolean(
+      firstName.trim() && lastName.trim() && consentTransactional === true
+    );
+    const anyPending = submitting || emailPending || phonePending;
+    return anyPending || !emailOk || !phoneOk || !requiredOk;
   }, [
     firstName,
     lastName,
@@ -324,7 +325,7 @@ export default function LeadForm({
         return;
       }
 
-      if (!canSubmit) return;
+      if (submitDisabled) return;
       setSubmitting(true);
       try {
         const res = await fetch("/api/lead", {
@@ -413,7 +414,7 @@ export default function LeadForm({
       }
     },
     [
-      canSubmit,
+      submitDisabled,
       firstName,
       lastName,
       email,
@@ -797,11 +798,12 @@ export default function LeadForm({
       <div className="sm:col-span-2 mt-2">
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={submitDisabled}
+          aria-disabled={submitDisabled}
           className={`${BUTTON_BASE} ${
-            canSubmit
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-300 text-gray-600 cursor-not-allowed"
+            submitDisabled
+              ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
+              : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
         >
           {submitting ? "Submitting..." : "Submit"}
