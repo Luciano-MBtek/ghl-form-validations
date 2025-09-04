@@ -135,6 +135,15 @@ export default function LeadForm({
     return ""; // Use default INPUT_BASE styling
   }
 
+  // Tri-state visual flags: treat null as red; show only after first response or while pending
+  type Tri = true | false | null | undefined;
+  function stateFlags(valid: Tri, pending: boolean) {
+    const show = pending || valid !== undefined;
+    const isGreen = show && !pending && valid === true;
+    const isRed = show && !pending && valid !== true;
+    return { show, isGreen, isRed };
+  }
+
   // Show validation state only after user interaction
   const showEmailState = emailPending || emailAttempted;
   const showPhoneState = phonePending || phoneAttempted;
@@ -519,46 +528,82 @@ export default function LeadForm({
           Email <span className="text-red-500">*</span>
         </label>
         <div className="relative">
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            onBlur={validateEmailField}
-            className={`${INPUT_BASE} pr-9 ${
-              showEmailState ? inputStateClasses(emailValid, emailPending) : ""
-            }`}
-            required
-            aria-invalid={emailValid === false ? true : undefined}
-            aria-describedby={
-              emailAttempted && (emailPending || emailValid === false)
-                ? "email-help"
-                : undefined
-            }
-            placeholder="you@example.com"
-          />
-          {showEmailState && emailPending && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-              <Spinner />
-            </div>
-          )}
-          {showEmailState && !emailPending && emailValid === true && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-green-600">
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
-                  clipRule="evenodd"
+          {(() => {
+            const {
+              show: showEmail,
+              isGreen,
+              isRed,
+            } = stateFlags(
+              emailAttempted ? (emailValid as Tri) : undefined,
+              emailPending
+            );
+            const emailClasses = [
+              INPUT_BASE,
+              "pr-9",
+              isGreen
+                ? "border-green-500 ring-1 ring-green-500 focus:border-green-500 focus:ring-green-500"
+                : isRed
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-sky-500 focus:ring-sky-500",
+            ].join(" ");
+            return (
+              <>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => onEmailChange(e.target.value)}
+                  onBlur={validateEmailField}
+                  className={emailClasses}
+                  required
+                  aria-invalid={emailValid === false ? true : undefined}
+                  aria-describedby={
+                    emailAttempted && (emailPending || emailValid === false)
+                      ? "email-help"
+                      : undefined
+                  }
+                  placeholder="you@example.com"
                 />
-              </svg>
-            </div>
-          )}
+                {emailPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                    <Spinner />
+                  </div>
+                )}
+                {showEmail && !emailPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    {isGreen ? (
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         {emailAttempted && (emailPending || emailValid === false) && (
           <div id="email-help" aria-live="polite">
@@ -571,64 +616,94 @@ export default function LeadForm({
         <label htmlFor="phone" className="text-sm font-medium text-gray-800">
           Phone <span className="text-red-500">*</span>
         </label>
-        <div
-          className={`relative flex items-stretch rounded-md border border-gray-300 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 ${
-            showPhoneState ? inputStateClasses(phoneValid, phonePending) : ""
-          }`}
-        >
-          <div className="PhoneInputCountry">
-            <select
-              aria-label="Country"
-              className="PhoneInputCountrySelect"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
+        {(() => {
+          const {
+            show: showPhone,
+            isGreen,
+            isRed,
+          } = stateFlags(
+            phoneAttempted ? (phoneValid as Tri) : undefined,
+            phonePending
+          );
+          const ringClasses = isGreen
+            ? "ring-2 ring-green-500 border-green-500"
+            : isRed
+            ? "ring-2 ring-red-500 border-red-500"
+            : "focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500";
+          return (
+            <div
+              className={`relative flex items-stretch rounded-md border border-gray-300 bg-white ${ringClasses}`}
             >
-              <option value="US">US</option>
-              <option value="CA">CA</option>
-              <option value="GB">GB</option>
-              <option value="PA">PA</option>
-              <option value="AU">AU</option>
-            </select>
-          </div>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => onPhoneChange(e.target.value)}
-            onBlur={validatePhoneField}
-            placeholder="+1234567890"
-            className="PhoneInputInput flex-1 w-full bg-transparent border-0 outline-0 py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:shadow-none"
-            required
-            aria-invalid={phoneValid === false ? true : undefined}
-            aria-describedby={
-              phoneAttempted && (phonePending || phoneValid === false)
-                ? "phone-help"
-                : undefined
-            }
-          />
-          {showPhoneState && phonePending && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
-              <Spinner />
+              <div className="PhoneInputCountry">
+                <select
+                  aria-label="Country"
+                  className="PhoneInputCountrySelect"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                >
+                  <option value="US">US</option>
+                  <option value="CA">CA</option>
+                  <option value="GB">GB</option>
+                  <option value="PA">PA</option>
+                  <option value="AU">AU</option>
+                </select>
+              </div>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => onPhoneChange(e.target.value)}
+                onBlur={validatePhoneField}
+                placeholder="+1234567890"
+                className="PhoneInputInput flex-1 w-full bg-transparent border-0 outline-0 py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:shadow-none"
+                required
+                aria-invalid={phoneValid === false ? true : undefined}
+                aria-describedby={
+                  phoneAttempted && (phonePending || phoneValid === false)
+                    ? "phone-help"
+                    : undefined
+                }
+              />
+              {phonePending && (
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                  <Spinner />
+                </div>
+              )}
+              {showPhone && !phonePending && (
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                  {isGreen ? (
+                    <svg
+                      className="h-4 w-4 text-green-600"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-4 w-4 text-red-600"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          {showPhoneState && !phonePending && phoneValid === true && (
-            <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-green-600">
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
+          );
+        })()}
         {phoneAttempted && (phonePending || phoneValid === false) && (
           <div id="phone-help" aria-live="polite">
             <PhoneHelper />
