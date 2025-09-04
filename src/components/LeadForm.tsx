@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormConfig } from "@/lib/formsRegistry";
 
 const devLog = (...args: any[]) => {
@@ -69,6 +69,18 @@ export default function LeadForm({
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
+  // Visibility helpers for conditional fields
+  const isEqual = (val: unknown, target: string | string[]) => {
+    if (Array.isArray(target)) return target.includes(String(val ?? ""));
+    return String(val ?? "") === target;
+  };
+
+  const isVisible = (field: any, ans: Record<string, any>) => {
+    if (!("showIf" in field) || !field.showIf) return true;
+    const cond = field.showIf as { fieldId: string; equals: string | string[] };
+    return isEqual(ans[cond.fieldId], cond.equals);
+  };
+
   function setAnswer(id: string, v: string) {
     setAnswers((s) => ({ ...s, [id]: v }));
     setDynErrors((s) => {
@@ -291,6 +303,7 @@ export default function LeadForm({
       const reqErrors: Record<string, string> = {};
       for (const section of formConfig.sections || []) {
         for (const field of section.fields || []) {
+          if (!isVisible(field as any, answers)) continue;
           if ("map" in field && field.map && CORE_MAPS.has(field.map)) continue;
           if (field.required && !answers[field.id]) {
             reqErrors[field.id] = "This field is required.";
@@ -404,6 +417,32 @@ export default function LeadForm({
       formSlug,
     ]
   );
+
+  // Prune hidden answers and errors when visibility changes
+  const purpose = answers["purpose"]; // drives visibility for contact-us
+  useEffect(() => {
+    const visibleIds = new Set<string>();
+    for (const section of formConfig.sections || []) {
+      for (const f of section.fields || []) {
+        if (isVisible(f as any, answers)) visibleIds.add(f.id);
+      }
+    }
+
+    Object.keys(answers).forEach((k) => {
+      if (!visibleIds.has(k)) {
+        setAnswers((a) => {
+          const copy: any = { ...a };
+          delete copy[k];
+          return copy;
+        });
+        setDynErrors((e) => {
+          const copy: any = { ...e };
+          delete copy[k];
+          return copy;
+        });
+      }
+    });
+  }, [purpose, formConfig, answers]);
 
   if (submitSuccess) {
     return (
@@ -599,9 +638,9 @@ export default function LeadForm({
 
       {/* Dynamic (non-core) fields from registry */}
       {(formConfig.sections || []).map((section: any, idx: number) => {
-        const nonCore = (section.fields || []).filter(
-          (f: any) => !(f.map && CORE_MAPS.has(f.map))
-        );
+        const nonCore = (section.fields || [])
+          .filter((f: any) => !(f.map && CORE_MAPS.has(f.map)))
+          .filter((f: any) => isVisible(f, answers));
         if (!nonCore.length) return null;
         return (
           <div key={idx} className="space-y-4 sm:col-span-2">
@@ -698,6 +737,7 @@ export default function LeadForm({
 
   function RenderField({ field }: { field: any }) {
     if (field.map && CORE_MAPS.has(field.map)) return null;
+    if (!isVisible(field, answers)) return null;
     const value = answers[field.id] ?? "";
 
     if (field.type === "radio") {

@@ -2,6 +2,7 @@ import REGISTRY from "../app/forms/registry.json";
 
 export type Registry = typeof REGISTRY;
 export type FormConfig = Registry["forms"][number];
+export type FieldShowIf = { fieldId: string; equals: string | string[] };
 export type LegalLink = { label: string; href: string };
 export type LegalConfig = { privacy: LegalLink; terms: LegalLink };
 export type FormConfigResolved = FormConfig & {
