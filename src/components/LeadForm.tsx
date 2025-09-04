@@ -3,6 +3,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { FormConfig } from "@/lib/formsRegistry";
 
+const devLog = (...args: any[]) => {
+  if (process.env.NODE_ENV !== "production") console.log(...args);
+};
+
 type ValidateResponse = {
   emailValid?: boolean | null;
   emailReason?: string;
@@ -120,6 +124,26 @@ export default function LeadForm({
   const showEmailState = emailPending || emailAttempted;
   const showPhoneState = phonePending || phoneAttempted;
 
+  // Helper components
+  function EmailHelper() {
+    if (!emailAttempted) return null;
+    if (emailPending)
+      return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
+    if (emailValid === false)
+      return <p className="mt-1 text-sm text-red-600">Invalid email.</p>;
+    // valid === true or null → no helper
+    return null;
+  }
+
+  function PhoneHelper() {
+    if (!phoneAttempted) return null;
+    if (phonePending)
+      return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
+    if (phoneValid === false)
+      return <p className="mt-1 text-sm text-red-600">Invalid phone number.</p>;
+    return null;
+  }
+
   function Spinner({
     className = "h-4 w-4 text-gray-400",
   }: {
@@ -194,6 +218,14 @@ export default function LeadForm({
       setEmailValid(data.emailValid ?? null);
       setEmailReason(data.emailReason || "");
       setEmailConfidence(data.emailConfidence || "unknown");
+
+      // Dev logging
+      devLog("[validate/email]", {
+        valid: data.emailValid,
+        reason: data.emailReason,
+        confidence: data.emailConfidence,
+        echo: data.echoEmail,
+      });
     } catch (e: any) {
       if (e.name === "AbortError") return;
       setEmailValid(null);
@@ -231,6 +263,14 @@ export default function LeadForm({
       setPhoneReason(data.phoneReason || "");
       setPhoneConfidence(data.phoneConfidence || "unknown");
       setPhoneLineType(data.phoneLineType || "");
+
+      // Dev logging
+      devLog("[validate/phone]", {
+        valid: data.phoneValid,
+        reason: data.phoneReason,
+        confidence: data.phoneConfidence,
+        echo: data.echoPhone,
+      });
     } catch (e: any) {
       if (e.name === "AbortError") return;
       setPhoneValid(null);
@@ -406,8 +446,12 @@ export default function LeadForm({
               showEmailState ? inputStateClasses(emailValid, emailPending) : ""
             }`}
             required
-            aria-invalid={emailValid === false}
-            aria-describedby="email-help"
+            aria-invalid={emailValid === false ? true : undefined}
+            aria-describedby={
+              emailAttempted && (emailPending || emailValid === false)
+                ? "email-help"
+                : undefined
+            }
             placeholder="you@example.com"
           />
           {showEmailState && emailPending && (
@@ -432,45 +476,10 @@ export default function LeadForm({
             </div>
           )}
         </div>
-        {showEmailState && emailValid === false && (
-          <p
-            id="email-help"
-            className="mt-1 text-sm text-red-600"
-            aria-live="polite"
-          >
-            {emailReason || "Invalid email address"}
-          </p>
-        )}
-        {showEmailState && emailValid === null && (
-          <p
-            id="email-help"
-            className="mt-1 text-sm text-gray-500"
-            aria-live="polite"
-          >
-            Couldn't verify; we'll recheck on submit.
-          </p>
-        )}
-        {showEmailState && emailValid === true && (
-          <p
-            id="email-help"
-            className={`mt-1 text-sm ${
-              emailConfidence === "good" ? "text-green-600" : "text-gray-500"
-            }`}
-            aria-live="polite"
-          >
-            {emailConfidence === "good"
-              ? "Looks good"
-              : "Looks okay; we'll confirm after submit."}
-          </p>
-        )}
-        {showEmailState && emailPending && (
-          <p
-            id="email-help"
-            className="mt-1 text-sm text-gray-500"
-            aria-live="polite"
-          >
-            Validating…
-          </p>
+        {emailAttempted && (emailPending || emailValid === false) && (
+          <div id="email-help" aria-live="polite">
+            <EmailHelper />
+          </div>
         )}
       </div>
 
@@ -507,8 +516,12 @@ export default function LeadForm({
             placeholder="+1234567890"
             className="PhoneInputInput flex-1 w-full bg-transparent border-0 outline-0 py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:shadow-none"
             required
-            aria-invalid={phoneValid === false}
-            aria-describedby="phone-help"
+            aria-invalid={phoneValid === false ? true : undefined}
+            aria-describedby={
+              phoneAttempted && (phonePending || phoneValid === false)
+                ? "phone-help"
+                : undefined
+            }
           />
           {showPhoneState && phonePending && (
             <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
@@ -532,47 +545,10 @@ export default function LeadForm({
             </div>
           )}
         </div>
-        {showPhoneState && phoneValid === false && (
-          <p
-            id="phone-help"
-            className="mt-1 text-sm text-red-600"
-            aria-live="polite"
-          >
-            {phoneReason || "Invalid phone number"}
-          </p>
-        )}
-        {showPhoneState && phoneValid === null && (
-          <p
-            id="phone-help"
-            className="mt-1 text-sm text-gray-500"
-            aria-live="polite"
-          >
-            Couldn't verify; we'll recheck on submit.
-          </p>
-        )}
-        {showPhoneState && phoneValid === true && (
-          <p
-            id="phone-help"
-            className={`mt-1 text-sm ${
-              phoneConfidence === "good" ? "text-green-600" : "text-gray-500"
-            }`}
-            aria-live="polite"
-          >
-            {phoneConfidence === "good"
-              ? "Looks good"
-              : phoneLineType === "voip"
-              ? "VOIP number; we'll confirm after submit."
-              : "Looks okay; we'll confirm after submit."}
-          </p>
-        )}
-        {showPhoneState && phonePending && (
-          <p
-            id="phone-help"
-            className="mt-1 text-sm text-gray-500"
-            aria-live="polite"
-          >
-            Validating…
-          </p>
+        {phoneAttempted && (phonePending || phoneValid === false) && (
+          <div id="phone-help" aria-live="polite">
+            <PhoneHelper />
+          </div>
         )}
       </div>
 
