@@ -67,7 +67,7 @@ export default function LeadForm({
   const [emailAttempted, setEmailAttempted] = useState(false);
   const [phoneAttempted, setPhoneAttempted] = useState(false);
 
-  const [country, setCountry] = useState<string>(prefill?.country ?? "US");
+  const [country, setCountry] = useState<string>(prefill?.country || "US");
 
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});

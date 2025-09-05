@@ -5,10 +5,7 @@ import {
   lcUpsertContact,
   lcCreateContact,
   lcUpdateContact,
-  lcUpdateCustomFields,
   toE164FromNational,
-  getContactId,
-  dbg,
   addContactToWorkflow,
 } from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
@@ -82,154 +79,101 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, errors }, { status: 422 });
     }
 
-    // ---- Build customFields as ARRAY ----
-    const fieldDefs = form.sections?.flatMap((s: any) => s.fields) ?? [];
-    const answers = (body as any).answers ?? {};
+    // 1) Build customFields array (labels must match GHL exactly)
     const customFieldsArray: Array<{ id: string; value: string }> = [];
-    const extraTags: string[] = [];
+    for (const f of form.sections?.flatMap((s: any) => s.fields) ?? []) {
+      if (!("mapCustomFieldId" in f) || !f.mapCustomFieldId) continue;
+      const key = f.id; // 'budget', 'squareFeet', ...
+      const raw = body.answers?.[key]; // internal code(s)
+      if (raw == null) continue;
 
-    for (const f of fieldDefs) {
-      if (!f.mapCustomFieldId) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[lead] skipping field without mapCustomFieldId", {
-            key: f.id,
-            type: f.type,
-          });
-        }
-        continue;
+      // normalize to labels
+      let value = "";
+      if (Array.isArray(raw)) {
+        const labels = raw
+          .map((v: string) => resolveOptionLabel(v, f.options))
+          .filter(Boolean) as string[];
+        value = labels.join(", ");
+      } else if (typeof raw === "string") {
+        value = resolveOptionLabel(raw, f.options) ?? raw; // fallback to raw to avoid dropping
       }
-      if (!(f.id in answers)) continue;
+      if (value.trim().length === 0) continue;
 
-      const raw = answers[f.id];
-
-      // radio/select - resolve to option label
-      if (f.type === "radio" || f.type === "select") {
-        const v = resolveOptionLabel(raw, f.options);
-        if (v == null) {
-          if (process.env.NODE_ENV !== "production") {
-            console.warn("[customField] unknown option", {
-              key: f.id,
-              raw,
-              allowed: (f.options ?? []).map((o: any) => o.label),
-            });
-          }
-          extraTags.push("UnknownOption");
-          customFieldsArray.push({
-            id: f.mapCustomFieldId,
-            value: String(raw),
-          });
-        } else {
-          customFieldsArray.push({ id: f.mapCustomFieldId, value: v });
-        }
-        continue;
-      }
-
-      // checkbox/checkbox-group → resolve each to label, then join
-      if (f.type === "checkbox" || f.type === "checkbox-group") {
-        const arr = Array.isArray(raw) ? raw : [raw];
-        const labels = arr.map(
-          (r) => resolveOptionLabel(r, f.options) ?? String(r)
-        );
-        const joined = labels.join(", ");
-        customFieldsArray.push({ id: f.mapCustomFieldId, value: joined });
-        continue;
-      }
-
-      // text/textarea/number/etc → stringify
-      customFieldsArray.push({ id: f.mapCustomFieldId, value: String(raw) });
+      customFieldsArray.push({ id: f.mapCustomFieldId, value });
     }
+    console.log("[lead] CFs resolved", customFieldsArray);
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[lead] final customFields (labels):", customFieldsArray);
-    }
-
-    dbg("[lead] customFieldsArray to send:", customFieldsArray);
-
+    // 2) Prepare base payload (NO customFields here)
+    const phoneE164 = toE164FromNational(body.phone, body.country || "US");
     const tags = [
       ...(form.tags || []),
-      ...extraTags,
       body.consentMarketing ? "MarketingOptIn" : null,
       emailR.valid === null ? "EmailUnknown" : null,
       phoneR.valid === null ? "PhoneUnknown" : null,
     ].filter(Boolean) as string[];
 
-    const phoneE164 = toE164FromNational(
-      String(body.phone || ""),
-      body.country || "US"
-    );
-
-    const lcPayload: any = {
-      locationId: form.locationId || "",
+    const basePayload: any = {
+      locationId: form.locationId || process.env.LC_LOCATION_ID || "",
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
       phone: phoneE164,
+      country: body.country || "US",
+      tags, // whatever you already computed
       source: form.name,
-      ...(Array.isArray(tags) && tags.length ? { tags } : {}),
-      // DO NOT drop customFields here; keep them for create and for upsert (in case account supports it).
-      ...(Array.isArray(customFieldsArray) && customFieldsArray.length
-        ? { customFields: customFieldsArray }
-        : {}),
     };
 
-    let lcData: any = null;
-    let contactId: string | undefined;
+    // 3) Upsert → fallback create → fallback update-existing
+    const extractId = (d: any): string | undefined =>
+      d?.contact?.id ??
+      d?.id ??
+      d?.data?.id ??
+      d?.contactId ??
+      d?.contact?.contactId;
 
-    // Try official upsert first
+    let contactId: string | undefined;
+    let upsertResp: any;
+
     try {
-      dbg("[lead] upsert payload:", {
-        ...lcPayload,
-        customFields: `len:${lcPayload.customFields?.length ?? 0}`,
-      });
-      lcData = await lcUpsertContact(lcPayload);
-      contactId = getContactId(lcData);
-      dbg("[lead] upsert result:", { contactId, raw: lcData });
+      upsertResp = await lcUpsertContact(basePayload);
+      contactId = extractId(upsertResp);
     } catch (e: any) {
-      // Upsert not available? -> try create
+      // Upsert not available? try create
       if (e?.status === 404 || e?.status === 405) {
         try {
-          dbg("[lead] upsert unsupported, creating…");
-          lcData = await lcCreateContact(lcPayload);
-          contactId = getContactId(lcData);
-          dbg("[lead] create result:", { contactId, raw: lcData });
-        } catch (createErr: any) {
-          // Duplicate flow -> update existing
-          const dupId = createErr?.details?.meta?.contactId as
-            | string
-            | undefined;
-          if (createErr?.status === 400 && dupId) {
-            dbg("[lead] create duplicate; updating existing contact", dupId);
-            lcData = await lcUpdateContact(dupId, lcPayload);
-            contactId = dupId;
-          } else {
-            throw createErr;
-          }
+          const created = await lcCreateContact(basePayload);
+          contactId = extractId(created);
+        } catch (ce: any) {
+          // duplicate on create → use meta.contactId and update
+          const dupId =
+            ce?.details?.meta?.contactId ??
+            ce?.meta?.contactId ??
+            ce?.response?.data?.meta?.contactId;
+          if (!dupId) throw ce;
+          contactId = dupId;
+          await lcUpdateContact(dupId, basePayload); // update base fields
         }
       } else {
         throw e;
       }
     }
 
-    // --- Important: some accounts ignore customFields on "upsert". If we had any, force-apply them now via PUT. ---
-    if (
-      contactId &&
-      Array.isArray(customFieldsArray) &&
-      customFieldsArray.length
-    ) {
+    if (!contactId) {
+      console.warn("[lead] no contactId from upsert/create", { upsertResp });
+      return NextResponse.json(
+        { ok: false, message: "No contactId returned" },
+        { status: 502 }
+      );
+    }
+
+    // 4) PUT custom fields ONLY (don't overwrite tags on PUT)
+    let sentCFs = 0;
+    if (customFieldsArray.length) {
       try {
-        dbg("[lead] forcing customFields via update", {
-          contactId,
-          count: customFieldsArray.length,
-        });
-        await lcUpdateCustomFields(
-          contactId,
-          form.locationId || "",
-          customFieldsArray,
-          tags
-        );
+        await lcUpdateContact(contactId, { customFields: customFieldsArray });
+        sentCFs = customFieldsArray.length;
       } catch (e) {
-        // log but don't fail the whole request
-        dbg("[lead] WARN: lcUpdateCustomFields failed", e);
+        console.warn("[lead] failed to update CFs", e);
       }
     }
 
@@ -245,11 +189,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      contactId: contactId ?? null,
-      sentCFs: customFieldsArray.length,
-    });
+    return NextResponse.json({ ok: true, contactId, sentCFs });
   } catch (e: any) {
     const status = e?.status || 500;
     return NextResponse.json(
