@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormConfig } from "@/lib/formsRegistry";
+import type { Prefill } from "@/lib/prefill";
 
 const devLog = (...args: any[]) => {
   if (process.env.NODE_ENV !== "production") console.log(...args);
@@ -33,21 +34,12 @@ export default function LeadForm({
     privacy?: { label: string; href: string };
     terms?: { label: string; href: string };
   };
-  prefill?: Partial<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    country: string;
-    calendar: string;
-    apptStart: string;
-    apptTz: string;
-  }>;
+  prefill?: Prefill;
 }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState(prefill?.firstName ?? "");
+  const [lastName, setLastName] = useState(prefill?.lastName ?? "");
+  const [email, setEmail] = useState(prefill?.email ?? "");
+  const [phone, setPhone] = useState(prefill?.phone ?? "");
   const [consentTransactional, setConsentTransactional] = useState(false);
   const [consentMarketing, setConsentMarketing] = useState(false);
 
@@ -75,16 +67,30 @@ export default function LeadForm({
   const [emailAttempted, setEmailAttempted] = useState(false);
   const [phoneAttempted, setPhoneAttempted] = useState(false);
 
-  const [country, setCountry] = useState<string>("US");
+  const [country, setCountry] = useState<string>(prefill?.country ?? "US");
 
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
 
-  // Utility to safely read prefill values
-  const getPrefillValue = (value: string | string[] | undefined): string => {
-    if (Array.isArray(value)) return value[0]?.trim() || "";
-    return value?.trim() || "";
+  // ------------ debounce helpers ------------
+  const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debounce = (cb: () => void, ref: typeof emailTimer, ms = 450) => {
+    if (ref.current) clearTimeout(ref.current);
+    ref.current = setTimeout(cb, ms);
+  };
+
+  // Convert national phone format to E.164
+  const toE164 = (nationalPhone: string, countryCode: string): string => {
+    if (!nationalPhone.trim()) return "";
+    const digits = nationalPhone.replace(/[^\d]/g, "");
+    if (countryCode === "US" || countryCode === "CA") {
+      return `+1${digits}`;
+    }
+    // For other countries, you'd need a proper mapping
+    return `+${digits}`;
   };
   // Visibility helpers for conditional fields
   const isEqual = (val: unknown, target: string | string[]) => {
@@ -215,165 +221,115 @@ export default function LeadForm({
     );
   }
 
-  const onEmailChange = useCallback((v: string) => {
-    setEmail(v);
-    if (!v) {
-      setEmailAttempted(false);
-      setEmailValid(null);
-      setEmailReason("");
-    }
-  }, []);
-
-  const onPhoneChange = useCallback((v: string) => {
-    setPhone(v);
-    if (!v) {
-      setPhoneAttempted(false);
-      setPhoneValid(null);
-      setPhoneReason("");
-    }
-  }, []);
-
-  const validateEmailField = useCallback(async () => {
-    const value = email.trim();
-    latestEmail.current = value;
+  // ------------ validation calls ------------
+  async function runEmailValidation(value: string) {
     if (!value) {
-      setEmailAttempted(false);
       setEmailValid(null);
-      setEmailReason("");
+      setEmailAttempted(false);
       return;
     }
     setEmailAttempted(true);
-    if (emailAbort.current) emailAbort.current.abort();
-    const ac = new AbortController();
-    emailAbort.current = ac;
     setEmailPending(true);
     try {
       const res = await fetch("/api/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: value }),
-        signal: ac.signal,
       });
-      if (!res.ok) throw new Error("validate_failed");
-      const data: ValidateResponse = await res.json();
-      if ((data.echoEmail ?? value) !== value) return; // stale
-      setEmailValid(data.emailValid ?? null);
+      const data = await res.json();
+      // green only when true; null and false are both non-green in UI
+      setEmailValid(
+        data.emailValid === true
+          ? true
+          : data.emailValid === false
+          ? false
+          : null
+      );
       setEmailReason(data.emailReason || "");
       setEmailConfidence(data.emailConfidence || "unknown");
-
-      // Dev logging
-      devLog("[validate/email]", {
-        valid: data.emailValid,
-        reason: data.emailReason,
-        confidence: data.emailConfidence,
-        echo: data.echoEmail,
-      });
+      if (data.emailValid !== true) {
+        // keep it user-friendly; log reason in console
+        devLog("[validate/email]", data);
+      }
     } catch (e: any) {
-      if (e.name === "AbortError") return;
       setEmailValid(null);
       setEmailReason("timeout_soft_pass");
     } finally {
       setEmailPending(false);
     }
-  }, [email]);
+  }
 
-  const validatePhoneField = useCallback(async () => {
-    const value = phone.trim();
-    latestPhone.current = value;
+  async function runPhoneValidation(value: string, ctry: string) {
     if (!value) {
-      setPhoneAttempted(false);
       setPhoneValid(null);
-      setPhoneReason("");
+      setPhoneAttempted(false);
       return;
     }
     setPhoneAttempted(true);
-    if (phoneAbort.current) phoneAbort.current.abort();
-    const ac = new AbortController();
-    phoneAbort.current = ac;
     setPhonePending(true);
     try {
       const res = await fetch("/api/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: value, country }),
-        signal: ac.signal,
+        body: JSON.stringify({ phone: value, country: ctry }), // IMPORTANT: send country
       });
-      if (!res.ok) throw new Error("validate_failed");
-      const data: ValidateResponse = await res.json();
-      if ((data.echoPhone ?? value) !== value) return; // stale
-      setPhoneValid(data.phoneValid ?? null);
+      const data = await res.json();
+      setPhoneValid(
+        data.phoneValid === true
+          ? true
+          : data.phoneValid === false
+          ? false
+          : null
+      );
       setPhoneReason(data.phoneReason || "");
       setPhoneConfidence(data.phoneConfidence || "unknown");
       setPhoneLineType(data.phoneLineType || "");
-
-      // Dev logging
-      devLog("[validate/phone]", {
-        valid: data.phoneValid,
-        reason: data.phoneReason,
-        confidence: data.phoneConfidence,
-        echo: data.echoPhone,
-      });
+      if (data.phoneValid !== true) {
+        devLog("[validate/phone]", data);
+      }
     } catch (e: any) {
-      if (e.name === "AbortError") return;
       setPhoneValid(null);
       setPhoneReason("timeout_soft_pass");
     } finally {
       setPhonePending(false);
     }
-  }, [phone, country]);
+  }
 
-  // Handle prefilling from URL params
+  // ------------ onChange re-validate (debounced) ------------
+  const onEmailChange = (v: string) => {
+    setEmail(v);
+    setEmailValid(null);
+    debounce(() => runEmailValidation(v), emailTimer);
+  };
+
+  const onPhoneChange = (v: string) => {
+    // strip non-digits for our national format input
+    const onlyDigits = v.replace(/[^\d]/g, "");
+    setPhone(onlyDigits);
+    setPhoneValid(null);
+    debounce(() => runPhoneValidation(onlyDigits, country), phoneTimer);
+  };
+
+  const onCountryChange = (c: string) => {
+    const iso = c.toUpperCase();
+    setCountry(iso);
+    // revalidate with new country if we already have digits
+    if (phone) debounce(() => runPhoneValidation(phone, iso), phoneTimer);
+  };
+
+  // ------------ auto-run on mount when prefilled ------------
   useEffect(() => {
-    if (!prefill) return;
-
-    // Prefill basic fields
-    const prefillFirstName = getPrefillValue(prefill.firstName);
-    const prefillLastName = getPrefillValue(prefill.lastName);
-    const prefillEmail = getPrefillValue(prefill.email);
-    const prefillPhone = getPrefillValue(prefill.phone);
-    const prefillCountry = getPrefillValue(prefill.country);
-
-    if (prefillFirstName && prefillFirstName !== firstName) {
-      setFirstName(prefillFirstName);
+    if (prefill?.email) {
+      debounce(() => runEmailValidation(prefill.email!), emailTimer);
     }
-    if (prefillLastName && prefillLastName !== lastName) {
-      setLastName(prefillLastName);
+    if (prefill?.phone) {
+      debounce(
+        () => runPhoneValidation(prefill.phone!, prefill.country ?? "US"),
+        phoneTimer
+      );
     }
-    if (prefillCountry && prefillCountry !== country) {
-      setCountry(prefillCountry);
-    }
-
-    // Prefill email and trigger validation
-    if (prefillEmail && prefillEmail !== email) {
-      setEmail(prefillEmail);
-      // Trigger validation after state update
-      setTimeout(() => {
-        if (prefillEmail.trim()) {
-          validateEmailField();
-        }
-      }, 0);
-    }
-
-    // Prefill phone and trigger validation
-    if (prefillPhone && prefillPhone !== phone) {
-      setPhone(prefillPhone);
-      // Trigger validation after state update
-      setTimeout(() => {
-        if (prefillPhone.trim()) {
-          validatePhoneField();
-        }
-      }, 0);
-    }
-  }, [
-    prefill,
-    firstName,
-    lastName,
-    email,
-    phone,
-    country,
-    validateEmailField,
-    validatePhoneField,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // once
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -406,7 +362,7 @@ export default function LeadForm({
             firstName: firstName.trim(),
             lastName: lastName.trim(),
             email: email.trim(),
-            phone: phone.trim(),
+            phone: toE164(phone, country),
             country,
             consentTransactional,
             consentMarketing,
@@ -629,7 +585,6 @@ export default function LeadForm({
                   type="email"
                   value={email}
                   onChange={(e) => onEmailChange(e.target.value)}
-                  onBlur={validateEmailField}
                   className={emailClasses}
                   required
                   aria-invalid={emailValid === false ? true : undefined}
@@ -714,7 +669,7 @@ export default function LeadForm({
                   aria-label="Country"
                   className="PhoneInputCountrySelect"
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
+                  onChange={(e) => onCountryChange(e.target.value)}
                 >
                   <option value="US">US</option>
                   <option value="CA">CA</option>
@@ -729,8 +684,7 @@ export default function LeadForm({
                 type="tel"
                 value={phone}
                 onChange={(e) => onPhoneChange(e.target.value)}
-                onBlur={validatePhoneField}
-                placeholder="+1234567890"
+                placeholder="1234567890"
                 className="PhoneInputInput flex-1 w-full bg-transparent border-0 outline-0 py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:shadow-none"
                 required
                 aria-invalid={phoneValid === false ? true : undefined}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import LeadForm from "@/components/LeadForm";
 import { getFormBySlug } from "@/lib/formsRegistry";
+import { parsePrefillFromSearchParams } from "@/lib/prefill";
 
 export default async function Page({
   params,
@@ -10,7 +11,16 @@ export default async function Page({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { slug } = await params; // Next 14+ async params
-  const prefill = await searchParams; // Next 14+ async searchParams
+  const rawSearchParams = await searchParams; // Next 14+ async searchParams
+
+  // Convert searchParams to URLSearchParams for parsing
+  const sp = new URLSearchParams(
+    Object.entries(rawSearchParams).flatMap(([k, v]) =>
+      Array.isArray(v) ? v.map((vv) => [k, vv]) : v ? [[k, v]] : []
+    ) as [string, string][]
+  );
+  const prefill = parsePrefillFromSearchParams(sp);
+
   const form = getFormBySlug(slug);
 
   if (!form || !form.locationId) return notFound();
