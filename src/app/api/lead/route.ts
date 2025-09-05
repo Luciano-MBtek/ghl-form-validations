@@ -5,7 +5,10 @@ import {
   lcUpsertContact,
   lcCreateContact,
   lcUpdateContact,
+  lcUpdateCustomFields,
   toE164FromNational,
+  getContactId,
+  dbg,
   addContactToWorkflow,
 } from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
@@ -140,6 +143,8 @@ export async function POST(req: NextRequest) {
       console.log("[lead] final customFields (labels):", customFieldsArray);
     }
 
+    dbg("[lead] customFieldsArray to send:", customFieldsArray);
+
     const tags = [
       ...(form.tags || []),
       ...extraTags,
@@ -148,13 +153,11 @@ export async function POST(req: NextRequest) {
       phoneR.valid === null ? "PhoneUnknown" : null,
     ].filter(Boolean) as string[];
 
-    // Ensure E.164 phone for LC matching
     const phoneE164 = toE164FromNational(
       String(body.phone || ""),
       body.country || "US"
     );
 
-    // Build the payload LC expects. IMPORTANT: customFields must be an array.
     const lcPayload: any = {
       locationId: form.locationId || "",
       firstName: body.firstName,
@@ -162,29 +165,42 @@ export async function POST(req: NextRequest) {
       email: body.email,
       phone: phoneE164,
       source: form.name,
+      ...(Array.isArray(tags) && tags.length ? { tags } : {}),
+      // DO NOT drop customFields here; keep them for create and for upsert (in case account supports it).
       ...(Array.isArray(customFieldsArray) && customFieldsArray.length
         ? { customFields: customFieldsArray }
         : {}),
-      ...(Array.isArray(tags) && tags.length ? { tags } : {}),
     };
 
     let lcData: any = null;
+    let contactId: string | undefined;
 
     // Try official upsert first
     try {
+      dbg("[lead] upsert payload:", {
+        ...lcPayload,
+        customFields: `len:${lcPayload.customFields?.length ?? 0}`,
+      });
       lcData = await lcUpsertContact(lcPayload);
+      contactId = getContactId(lcData);
+      dbg("[lead] upsert result:", { contactId, raw: lcData });
     } catch (e: any) {
-      // Upsert not available? (404/405 on some accounts) -> try create
+      // Upsert not available? -> try create
       if (e?.status === 404 || e?.status === 405) {
         try {
+          dbg("[lead] upsert unsupported, creating…");
           lcData = await lcCreateContact(lcPayload);
+          contactId = getContactId(lcData);
+          dbg("[lead] create result:", { contactId, raw: lcData });
         } catch (createErr: any) {
-          // Location blocks duplicates; LC returns contactId to update
+          // Duplicate flow -> update existing
           const dupId = createErr?.details?.meta?.contactId as
             | string
             | undefined;
           if (createErr?.status === 400 && dupId) {
+            dbg("[lead] create duplicate; updating existing contact", dupId);
             lcData = await lcUpdateContact(dupId, lcPayload);
+            contactId = dupId;
           } else {
             throw createErr;
           }
@@ -194,12 +210,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const contactId =
-      lcData?.id ??
-      lcData?.contactId ??
-      lcData?.contact?.id ??
-      lcData?.contact?._id ??
-      null;
+    // --- Important: some accounts ignore customFields on "upsert". If we had any, force-apply them now via PUT. ---
+    if (
+      contactId &&
+      Array.isArray(customFieldsArray) &&
+      customFieldsArray.length
+    ) {
+      try {
+        dbg("[lead] forcing customFields via update", {
+          contactId,
+          count: customFieldsArray.length,
+        });
+        await lcUpdateCustomFields(
+          contactId,
+          form.locationId || "",
+          customFieldsArray,
+          tags
+        );
+      } catch (e) {
+        // log but don't fail the whole request
+        dbg("[lead] WARN: lcUpdateCustomFields failed", e);
+      }
+    }
 
     if (contactId && form.workflowId) {
       try {
@@ -213,7 +245,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, contactId }, { status: 200 });
+    return NextResponse.json({
+      ok: true,
+      contactId: contactId ?? null,
+    });
   } catch (e: any) {
     const status = e?.status || 500;
     return NextResponse.json(

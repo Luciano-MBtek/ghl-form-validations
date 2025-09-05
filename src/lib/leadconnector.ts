@@ -5,6 +5,23 @@ const TOKEN = process.env.LC_PRIVATE_TOKEN!;
 
 type AnyObj = Record<string, any>;
 
+// --- add near top, after imports ---
+export type LCContactIdish =
+  | { id?: string; contactId?: string }
+  | null
+  | undefined;
+export const getContactId = (d: LCContactIdish): string | undefined =>
+  (d && (d as any).id) || (d && (d as any).contactId) || undefined;
+
+const dbg = (...args: any[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.log("[LC]", ...args);
+  }
+};
+
+export { dbg };
+
 async function lcFetch<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -79,4 +96,15 @@ export async function addContactToWorkflow(
     method: "POST",
     body: JSON.stringify({}),
   });
+}
+
+export async function lcUpdateCustomFields(
+  contactId: string,
+  locationId: string,
+  customFields: any[],
+  tags?: string[]
+) {
+  const payload: any = { locationId, customFields };
+  if (tags && tags.length) payload.tags = tags;
+  return lcUpdateContact(contactId, payload);
 }
