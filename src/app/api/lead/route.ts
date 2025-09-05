@@ -248,6 +248,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       contactId: contactId ?? null,
+      sentCFs: customFieldsArray.length,
     });
   } catch (e: any) {
     const status = e?.status || 500;

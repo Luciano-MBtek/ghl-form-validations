@@ -319,6 +319,11 @@ export default function LeadForm({
 
   // ------------ auto-run on mount when prefilled ------------
   useEffect(() => {
+    // Only override country if a valid, recognized code was provided
+    if (prefill?.country && prefill.country.length === 2) {
+      setCountry(prefill.country.toUpperCase());
+    }
+
     if (prefill?.email) {
       debounce(() => runEmailValidation(prefill.email!), emailTimer);
     }
