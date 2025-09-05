@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
 import { getFormBySlug } from "@/lib/formsRegistry";
-import { addContactToWorkflow, upsertContact } from "@/lib/leadconnector";
+import {
+  lcUpsertContact,
+  lcCreateContact,
+  lcUpdateContact,
+  toE164FromNational,
+  addContactToWorkflow,
+} from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
 
 export const runtime = "nodejs";
@@ -142,18 +148,58 @@ export async function POST(req: NextRequest) {
       phoneR.valid === null ? "PhoneUnknown" : null,
     ].filter(Boolean) as string[];
 
-    const created = await upsertContact({
+    // Ensure E.164 phone for LC matching
+    const phoneE164 = toE164FromNational(
+      String(body.phone || ""),
+      body.country || "US"
+    );
+
+    // Build the payload LC expects. IMPORTANT: customFields must be an array.
+    const lcPayload: any = {
       locationId: form.locationId || "",
-      email: body.email,
-      phone: body.phone,
       firstName: body.firstName,
       lastName: body.lastName,
-      tags,
+      email: body.email,
+      phone: phoneE164,
       source: form.name,
-      customFieldsArray, // <— send array shape
-    });
+      ...(Array.isArray(customFieldsArray) && customFieldsArray.length
+        ? { customFields: customFieldsArray }
+        : {}),
+      ...(Array.isArray(tags) && tags.length ? { tags } : {}),
+    };
+
+    let lcData: any = null;
+
+    // Try official upsert first
+    try {
+      lcData = await lcUpsertContact(lcPayload);
+    } catch (e: any) {
+      // Upsert not available? (404/405 on some accounts) -> try create
+      if (e?.status === 404 || e?.status === 405) {
+        try {
+          lcData = await lcCreateContact(lcPayload);
+        } catch (createErr: any) {
+          // Location blocks duplicates; LC returns contactId to update
+          const dupId = createErr?.details?.meta?.contactId as
+            | string
+            | undefined;
+          if (createErr?.status === 400 && dupId) {
+            lcData = await lcUpdateContact(dupId, lcPayload);
+          } else {
+            throw createErr;
+          }
+        }
+      } else {
+        throw e;
+      }
+    }
+
     const contactId =
-      created?.contact?.id || created?.contact?._id || created?.id;
+      lcData?.id ??
+      lcData?.contactId ??
+      lcData?.contact?.id ??
+      lcData?.contact?._id ??
+      null;
 
     if (contactId && form.workflowId) {
       try {

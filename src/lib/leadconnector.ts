@@ -1,106 +1,73 @@
-import { config } from "./config";
+// src/lib/leadconnector.ts
+const BASE = process.env.LC_BASE_URL!;
+const VERSION = process.env.LC_API_VERSION!;
+const TOKEN = process.env.LC_PRIVATE_TOKEN!;
 
-const BASE = process.env.LC_BASE_URL || "https://services.leadconnectorhq.com";
-const API_VERSION = process.env.LC_API_VERSION || "2021-07-28";
-const TOKEN = process.env.LC_PRIVATE_TOKEN;
+type AnyObj = Record<string, any>;
 
-type UpsertArgs = {
-  locationId: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  tags?: string[];
-  source?: string;
-  customFieldsArray?: Array<{ id: string; value: string }>;
-};
-
-function requireEnv(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
-async function lcFetch(
-  path: string,
-  init: RequestInit & { locationId: string }
-) {
-  if (!TOKEN) throw new Error("Missing env: LC_PRIVATE_TOKEN");
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${TOKEN}`,
-    Version: API_VERSION,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    "Location-Id": init.locationId,
-    ...(init.headers as any),
-  };
-
+async function lcFetch<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${TOKEN}`,
+      Version: VERSION,
+      ...(init.headers || {}),
+    },
     cache: "no-store",
   });
-  let body: any = null;
-  try {
-    body = await res.json();
-  } catch {
-    // ignore non-JSON
-  }
+
   if (!res.ok) {
+    let details: any = null;
+    try {
+      details = await res.json();
+    } catch {}
     const err: any = new Error(
       `LeadConnector ${res.status} ${res.statusText} on ${path}`
     );
     err.status = res.status;
     err.path = path;
-    err.body = body;
+    err.details = details;
     throw err;
   }
-  return body;
+
+  const json = await res.json().catch(() => ({}));
+  return (json?.data ?? json) as T;
 }
 
-export async function upsertContact(args: UpsertArgs) {
-  const {
-    locationId,
-    firstName,
-    lastName,
-    email,
-    phone,
-    tags,
-    source,
-    customFieldsArray = [],
-  } = args;
+/** Convert national digits + ISO country to E.164 for LC matching */
+export function toE164FromNational(
+  digits?: string,
+  country?: string
+): string | undefined {
+  if (!digits) return undefined;
+  const d = String(digits).replace(/[^\d+]/g, "");
+  const iso = (country || "").toUpperCase();
+  if (d.startsWith("+")) return d;
+  if (iso === "US" || iso === "CA") return `+1${d}`;
+  return `+${d}`;
+}
 
-  const body = {
-    locationId,
-    firstName,
-    lastName,
-    ...(email ? { email } : {}),
-    ...(phone ? { phone } : {}),
-    ...(tags?.length ? { tags } : {}),
-    ...(source ? { source } : {}),
-    ...(customFieldsArray.length ? { customFields: customFieldsArray } : {}),
-  };
-
-  if (process.env.NODE_ENV !== "production") {
-    const scrubbed = {
-      ...body,
-      email: email ? "<redacted>" : undefined,
-      phone: phone ? "<redacted>" : undefined,
-    };
-    console.log("[LC upsert] payload (array shape)", scrubbed);
-  }
-
-  const res = await lcFetch("/contacts/", {
+// Preferred if enabled on the account
+export async function lcUpsertContact(payload: AnyObj) {
+  return lcFetch<any>("/contacts/upsert", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "Location-Id": locationId,
-    },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
+}
 
-  return res;
+export async function lcCreateContact(payload: AnyObj) {
+  return lcFetch<any>("/contacts/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function lcUpdateContact(contactId: string, payload: AnyObj) {
+  return lcFetch<any>(`/contacts/${contactId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function addContactToWorkflow(
@@ -108,9 +75,8 @@ export async function addContactToWorkflow(
   workflowId: string,
   locationId: string
 ) {
-  return lcFetch(`/contacts/${contactId}/workflow/${workflowId}`, {
+  return lcFetch<any>(`/contacts/${contactId}/workflow/${workflowId}`, {
     method: "POST",
-    locationId,
     body: JSON.stringify({}),
   });
 }
