@@ -108,3 +108,26 @@ export async function lcUpdateCustomFields(
   if (tags && tags.length) payload.tags = tags;
   return lcUpdateContact(contactId, payload);
 }
+
+// add near other helpers
+export async function lcGetContactsByQuery(query: string, locationId: string) {
+  // GHL "Get Contacts" supports ?query= (email/phone/name) + location filter
+  const params = new URLSearchParams({
+    locationId,
+    query,
+    limit: "1",
+  });
+  return lcFetch<any>(`/contacts/?${params.toString()}`); // expect {contacts:[{id,...}]}
+}
+
+// tiny extractor used by route
+export function pickContactId(raw: any): string | undefined {
+  return (
+    raw?.contact?.id ??
+    raw?.id ??
+    raw?.data?.id ??
+    raw?.contactId ??
+    raw?.contact?.contactId ??
+    raw?.data?.contact?.id
+  );
+}
