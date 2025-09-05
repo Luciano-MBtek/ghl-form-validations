@@ -24,6 +24,7 @@ export default function LeadForm({
   title,
   formConfig,
   legal,
+  prefill,
 }: {
   formSlug: string;
   title?: string;
@@ -32,6 +33,16 @@ export default function LeadForm({
     privacy?: { label: string; href: string };
     terms?: { label: string; href: string };
   };
+  prefill?: Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    country: string;
+    calendar: string;
+    apptStart: string;
+    apptTz: string;
+  }>;
 }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -69,6 +80,12 @@ export default function LeadForm({
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
+
+  // Utility to safely read prefill values
+  const getPrefillValue = (value: string | string[] | undefined): string => {
+    if (Array.isArray(value)) return value[0]?.trim() || "";
+    return value?.trim() || "";
+  };
   // Visibility helpers for conditional fields
   const isEqual = (val: unknown, target: string | string[]) => {
     if (Array.isArray(target)) return target.includes(String(val ?? ""));
@@ -305,6 +322,59 @@ export default function LeadForm({
     }
   }, [phone, country]);
 
+  // Handle prefilling from URL params
+  useEffect(() => {
+    if (!prefill) return;
+
+    // Prefill basic fields
+    const prefillFirstName = getPrefillValue(prefill.firstName);
+    const prefillLastName = getPrefillValue(prefill.lastName);
+    const prefillEmail = getPrefillValue(prefill.email);
+    const prefillPhone = getPrefillValue(prefill.phone);
+    const prefillCountry = getPrefillValue(prefill.country);
+
+    if (prefillFirstName && prefillFirstName !== firstName) {
+      setFirstName(prefillFirstName);
+    }
+    if (prefillLastName && prefillLastName !== lastName) {
+      setLastName(prefillLastName);
+    }
+    if (prefillCountry && prefillCountry !== country) {
+      setCountry(prefillCountry);
+    }
+
+    // Prefill email and trigger validation
+    if (prefillEmail && prefillEmail !== email) {
+      setEmail(prefillEmail);
+      // Trigger validation after state update
+      setTimeout(() => {
+        if (prefillEmail.trim()) {
+          validateEmailField();
+        }
+      }, 0);
+    }
+
+    // Prefill phone and trigger validation
+    if (prefillPhone && prefillPhone !== phone) {
+      setPhone(prefillPhone);
+      // Trigger validation after state update
+      setTimeout(() => {
+        if (prefillPhone.trim()) {
+          validatePhoneField();
+        }
+      }, 0);
+    }
+  }, [
+    prefill,
+    firstName,
+    lastName,
+    email,
+    phone,
+    country,
+    validateEmailField,
+    validatePhoneField,
+  ]);
+
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -341,6 +411,10 @@ export default function LeadForm({
             consentTransactional,
             consentMarketing,
             answers, // Send dynamic form answers
+            // Include calendar/appointment meta if present
+            ...(prefill?.calendar && { calendar: prefill.calendar }),
+            ...(prefill?.apptStart && { apptStart: prefill.apptStart }),
+            ...(prefill?.apptTz && { apptTz: prefill.apptTz }),
           }),
         });
         if (res.status === 429) {

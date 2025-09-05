@@ -4,10 +4,13 @@ import { getFormBySlug } from "@/lib/formsRegistry";
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { slug } = await params; // Next 14+ async params
+  const prefill = await searchParams; // Next 14+ async searchParams
   const form = getFormBySlug(slug);
 
   if (!form || !form.locationId) return notFound();
@@ -18,7 +21,7 @@ export default async function Page({
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sm:p-8">
           <h1 className="text-xl font-semibold text-gray-900">{form.name}</h1>
           <p className="mt-1.5 text-sm text-gray-600">
-            Please provide your contact information and we’ll get back to you
+            Please provide your contact information and we'll get back to you
             shortly.
           </p>
           <hr className="my-6 border-gray-200" />
@@ -27,6 +30,7 @@ export default async function Page({
             formSlug={form.slug}
             formConfig={form as any}
             legal={(form as any).legal}
+            prefill={prefill}
           />
         </div>
       </div>
