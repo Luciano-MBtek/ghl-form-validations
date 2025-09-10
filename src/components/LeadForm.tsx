@@ -22,7 +22,6 @@ type ValidateResponse = {
 
 export default function LeadForm({
   formSlug,
-  title,
   formConfig,
   legal,
   prefill,
@@ -31,7 +30,6 @@ export default function LeadForm({
   timezone,
 }: {
   formSlug: string;
-  title?: string;
   formConfig: FormConfig;
   legal?: {
     privacy?: { label: string; href: string };

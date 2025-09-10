@@ -139,18 +139,20 @@ export default function BookingWizard({
         <div className="space-y-6">
           {/* Selected appointment summary */}
           {selectedSlotISO && (
-            <div className="rounded-md bg-blue-50 p-4">
-              <div className="text-sm text-blue-800">
-                <strong>Selected Appointment:</strong>{" "}
-                {new Date(selectedSlotISO).toLocaleString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  timeZone: timezone,
-                })}
+            <div className="rounded-md bg-blue-50 p-3 md:p-4">
+              <div className="flex items-center gap-2 text-sm text-blue-800">
+                <div>
+                  <strong>Selected Appointment:</strong>{" "}
+                  {new Date(selectedSlotISO).toLocaleString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZone: timezone,
+                  })}
+                </div>
               </div>
             </div>
           )}
