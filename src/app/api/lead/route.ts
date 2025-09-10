@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       phone: phoneE164,
       country: body.country || "US",
       tags,
-      source: form.name,
+      source: form.slug,
     };
 
     // --- 3) Upsert payload (BEST-EFFORT includes CFs) ---

@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       phone: phoneE164,
       country: body.contact.country || "US",
       tags,
-      source: form.name,
+      source: form.slug,
     };
 
     // --- 3) Upsert payload (BEST-EFFORT includes CFs) ---
@@ -278,6 +278,15 @@ export async function POST(req: NextRequest) {
     const startTimeIso = startTime.toISOString();
     const endTimeIso = endTime.toISOString();
 
+    // Compute appointment title from contact name
+    const fullName = [
+      body.contact?.firstName || "",
+      body.contact?.lastName || "",
+    ]
+      .join(" ")
+      .trim();
+    const apptTitle = fullName || body.contact?.email || "Booking";
+
     console.log("[booking] try create", {
       slug: body.formSlug,
       loc: form.locationId,
@@ -285,6 +294,7 @@ export async function POST(req: NextRequest) {
       start: startTimeIso,
       end: endTimeIso,
       tz: body.timezone,
+      apptTitle,
     });
 
     let appointmentId: string;
@@ -296,9 +306,9 @@ export async function POST(req: NextRequest) {
         startTimeIso,
         endTimeIso,
         timezone: body.timezone,
-        title: `Appointment - ${form.name}`,
-        notes: `Appointment booked via ${form.name} form`,
-        source: form.name,
+        title: apptTitle,
+        notes: `Appointment booked via ${form.slug} form`,
+        source: form.slug,
       });
       appointmentId = appointment.id;
       console.log("[booking] appointment created:", appointmentId);
