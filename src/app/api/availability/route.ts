@@ -1,8 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lcGetFreeSlots } from "@/lib/leadconnector";
 import { getFormBySlug } from "@/lib/formsRegistry";
+import { startOfTodayMs } from "@/lib/time";
 
 export const runtime = "nodejs";
+
+// helper: build YYYY-MM-DD in a TZ
+function ymdInTz(date: Date, tz: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  return `${y}-${m}-${d}`;
+}
+
+function isWeekendKey(ymd: string, tz: string): boolean {
+  // Make a Date from YYYY-MM-DD *interpreted in tz* by appending noon to avoid DST edges:
+  const localNoon = new Date(`${ymd}T12:00:00`);
+  const wk = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    weekday: "short",
+  }).format(localNoon);
+  return wk === "Sat" || wk === "Sun";
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,8 +87,8 @@ export async function GET(req: NextRequest) {
     const calendarId = form.booking.calendarId;
 
     // Parse dates and convert to epoch milliseconds
-    let startDateMs: number;
-    let endDateMs: number;
+    let parsedStartMs: number | undefined;
+    let parsedEndMs: number | undefined;
 
     if (start && end) {
       // Parse provided dates (ISO YYYY-MM-DD or epoch ms)
@@ -83,51 +108,48 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      startDateMs = startDate.getTime();
-      endDateMs = endDate.getTime();
-    } else {
-      // Default: today + 14 days
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const endDate = new Date(today);
-      endDate.setDate(endDate.getDate() + 14);
-
-      startDateMs = today.getTime();
-      endDateMs = endDate.getTime();
+      parsedStartMs = startDate.getTime();
+      parsedEndMs = endDate.getTime();
     }
 
+    // clamp start to tomorrow 00:00 in tz
+    const todayMs = startOfTodayMs(timezone);
+    const tomorrowMs = todayMs + 24 * 60 * 60 * 1000;
+    const startMs = Math.max(parsedStartMs ?? 0, tomorrowMs);
+    let endMs = parsedEndMs ?? startMs + 14 * 24 * 60 * 60 * 1000;
+
     // Guard: ensure we have valid milliseconds and range <= 31 days
-    if (!Number.isInteger(startDateMs) || !Number.isInteger(endDateMs)) {
+    if (!Number.isInteger(startMs) || !Number.isInteger(endMs)) {
       return NextResponse.json(
         { error: "Invalid date range - must be valid timestamps" },
         { status: 400 }
       );
     }
 
-    const rangeMs = endDateMs - startDateMs;
+    const rangeMs = endMs - startMs;
     const maxRangeMs = 31 * 24 * 60 * 60 * 1000; // 31 days in ms
     if (rangeMs > maxRangeMs) {
       // Trim end date to 31 days
-      endDateMs = startDateMs + maxRangeMs;
+      endMs = startMs + maxRangeMs;
       console.warn("[availability] trimmed end date to 31-day range", {
-        originalEnd: new Date(endDateMs + rangeMs - maxRangeMs).toISOString(),
-        trimmedEnd: new Date(endDateMs).toISOString(),
+        originalEnd: new Date(endMs + rangeMs - maxRangeMs).toISOString(),
+        trimmedEnd: new Date(endMs).toISOString(),
       });
     }
 
     console.debug("[availability] inputs", {
       slug,
       calendarId,
-      startDateMs,
-      endDateMs,
+      startMs,
+      endMs,
       timezone,
     });
 
     // Fetch availability from LeadConnector
     const rawResponse = await lcGetFreeSlots({
       calendarId,
-      startDateMs,
-      endDateMs,
+      startDateMs: startMs,
+      endDateMs: endMs,
       timezone,
     });
 
@@ -142,27 +164,29 @@ export async function GET(req: NextRequest) {
       ),
     });
 
-    // Normalize response to flat array format
-    let normalizedSlots: string[] = [];
+    // Filter by date key to hide today and weekends completely
+    const todayKey = ymdInTz(new Date(), timezone);
+    const filteredByDateKey: Record<string, { slots: string[] }> = {};
     const traceId = rawResponse.traceId;
 
+    // Process the response and filter by date keys
+    let rawSlots: Record<string, any> = {};
+
     if (Array.isArray(rawResponse.slots)) {
-      // Case A: Flat array format
-      normalizedSlots = rawResponse.slots.filter(Boolean);
+      // Case A: Flat array format - group by date
+      const grouped: Record<string, string[]> = {};
+      rawResponse.slots.filter(Boolean).forEach((slotISO: string) => {
+        const date = new Date(slotISO);
+        const dateKey = ymdInTz(date, timezone);
+        if (!grouped[dateKey]) grouped[dateKey] = [];
+        grouped[dateKey].push(slotISO);
+      });
+      rawSlots = grouped;
     } else if (rawResponse._dates_ && typeof rawResponse._dates_ === "object") {
       // Case B: Nested under _dates_
-      const datesObj = rawResponse._dates_;
-      for (const [dateKey, dayData] of Object.entries(datesObj)) {
-        if (
-          dayData &&
-          typeof dayData === "object" &&
-          Array.isArray(dayData.slots)
-        ) {
-          normalizedSlots.push(...dayData.slots.filter(Boolean));
-        }
-      }
+      rawSlots = rawResponse._dates_;
     } else {
-      // Case B: Top-level date keys (YYYY-MM-DD format)
+      // Case C: Top-level date keys (YYYY-MM-DD format)
       for (const [key, value] of Object.entries(rawResponse)) {
         if (
           /^\d{4}-\d{2}-\d{2}$/.test(key) &&
@@ -170,26 +194,32 @@ export async function GET(req: NextRequest) {
           typeof value === "object" &&
           Array.isArray(value.slots)
         ) {
-          normalizedSlots.push(...value.slots.filter(Boolean));
+          rawSlots[key] = value;
         }
       }
     }
 
-    // Sort slots by datetime ISO string
-    normalizedSlots.sort(
-      (a, b) => new Date(a).getTime() - new Date(b).getTime()
-    );
+    // Filter out today and weekends by date key
+    for (const [ymd, obj] of Object.entries(rawSlots)) {
+      // drop whole day if today or weekend
+      if (ymd === todayKey) continue;
+      if (isWeekendKey(ymd, timezone)) continue;
+      const slots = Array.isArray(obj?.slots) ? obj.slots : [];
+      if (slots.length) filteredByDateKey[ymd] = { slots };
+    }
 
-    console.log("[availability] normalized", {
+    console.log("[availability] filtered by date key", {
       slug,
       calendarId,
-      count: normalizedSlots.length,
+      todayKey,
+      totalDateKeys: Object.keys(rawSlots).length,
+      filteredDateKeys: Object.keys(filteredByDateKey).length,
       traceId,
     });
 
     return NextResponse.json({
       ok: true,
-      slots: normalizedSlots,
+      slots: filteredByDateKey,
       ...(traceId && { traceId }),
     });
   } catch (error: any) {

@@ -37,25 +37,20 @@ export default function BookingStep({
     fetchTimer.current = setTimeout(cb, ms);
   };
 
-  // Transform API response (array of ISO strings) to our format
-  const transformSlotsFromAPI = (apiSlots: string[]): FreeSlot[] => {
-    const grouped: Record<string, string[]> = {};
+  // Transform API response (object with date keys) to our format
+  const transformSlotsFromAPI = (
+    apiSlots: Record<string, { slots: string[] }>
+  ): FreeSlot[] => {
+    return Object.entries(apiSlots).map(([date, dayData]) => {
+      const times = dayData.slots
+        .map((slotISO) => {
+          const date = new Date(slotISO);
+          return date.toTimeString().split(" ")[0].substring(0, 5); // HH:MM
+        })
+        .sort();
 
-    apiSlots.forEach((slotISO) => {
-      const date = new Date(slotISO);
-      const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
-      const timeStr = date.toTimeString().split(" ")[0].substring(0, 5); // HH:MM
-
-      if (!grouped[dateStr]) {
-        grouped[dateStr] = [];
-      }
-      grouped[dateStr].push(timeStr);
+      return { date, times };
     });
-
-    return Object.entries(grouped).map(([date, times]) => ({
-      date,
-      times: times.sort(),
-    }));
   };
 
   const fetchAvailability = useCallback(
@@ -85,17 +80,18 @@ export default function BookingStep({
           throw new Error(errorMessage);
         }
 
-        // API now returns normalized flat array - transform to our format
-        const normalizedSlots = data.slots || [];
+        // API now returns object with date keys - transform to our format
+        const slotsByDate = data.slots || {};
         console.log("[BookingStep] received slots", {
-          count: normalizedSlots.length,
+          dateKeys: Object.keys(slotsByDate),
           traceId: data.traceId,
         });
 
-        const transformedSlots = transformSlotsFromAPI(normalizedSlots);
+        const transformedSlots = transformSlotsFromAPI(slotsByDate);
         setSlots(transformedSlots);
 
         // Auto-select first available date if none selected
+        // Server already filters out today and weekends, so just pick first
         if (!selectedDate && transformedSlots.length > 0) {
           const firstSlot = transformedSlots.find(
             (slot: FreeSlot) => slot.times.length > 0
@@ -139,7 +135,7 @@ export default function BookingStep({
     return grouped;
   }, [slots]);
 
-  // Get available dates for current month
+  // Get available dates for current month (server already filters out today/weekends)
   const availableDates = useMemo(() => {
     return Object.keys(slotsByDate).sort();
   }, [slotsByDate]);

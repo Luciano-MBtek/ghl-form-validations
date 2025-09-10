@@ -12,6 +12,7 @@ import {
   addContactToWorkflow,
 } from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
+import { isWeekendISO, isSameDayISO } from "@/lib/time";
 
 export const runtime = "nodejs";
 
@@ -277,6 +278,37 @@ export async function POST(req: NextRequest) {
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hour
     const startTimeIso = startTime.toISOString();
     const endTimeIso = endTime.toISOString();
+
+    // Validate scheduling constraints
+    const tz =
+      form.booking?.timezone ||
+      process.env.BOOKING_TIMEZONE_DEFAULT ||
+      "America/New_York";
+    const nowIso = new Date().toISOString();
+
+    if (isSameDayISO(startTimeIso, nowIso, tz)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          status: 400,
+          message:
+            "Same-day bookings are not allowed. Please choose a time starting tomorrow.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (isWeekendISO(startTimeIso, tz)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          status: 400,
+          message:
+            "Weekend bookings are not available. Please choose Monday–Friday.",
+        },
+        { status: 400 }
+      );
+    }
 
     // Compute appointment title from contact name
     const fullName = [
