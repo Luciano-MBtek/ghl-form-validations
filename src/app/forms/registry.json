@@ -77,7 +77,7 @@
 
     {
       "slug": "form-1-calendar",
-      "name": "Form 1 - calendar",
+      "name": "Schedule Your Free Call Now!",
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-1-calendar"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
@@ -227,7 +227,7 @@
 
     {
       "slug": "form-2-calendar-boilers",
-      "name": "Form 2 - calendar - boilers",
+      "name": "Book a Quick Boiler Call",
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-2-calendar-boilers"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
@@ -378,7 +378,7 @@
 
     {
       "slug": "form-3-calendar-fcu",
-      "name": "Form 3 - calendar - FCU",
+      "name": "Request Your Fan Coil Consultation",
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-3-calendar-fcu"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
@@ -533,7 +533,7 @@
 
     {
       "slug": "form-contact-us",
-      "name": "Form Contact US",
+      "name": "Contact Us",
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-contact-us"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
@@ -711,7 +711,7 @@
 
     {
       "slug": "general-lead-form",
-      "name": "general - lead form",
+      "name": "Reserve Your Free Consultation",
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["general-lead-form"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
