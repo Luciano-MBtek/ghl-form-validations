@@ -81,6 +81,11 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-1-calendar"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "booking": {
+        "enabled": true,
+        "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_1",
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+      },
       "sections": [
         {
           "title": "Contact Info",
@@ -226,6 +231,11 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-2-calendar-boilers"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "booking": {
+        "enabled": true,
+        "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_2_BOILERS",
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+      },
       "sections": [
         {
           "title": "Contact Info",
@@ -372,6 +382,11 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-3-calendar-fcu"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "booking": {
+        "enabled": true,
+        "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_3_FCU",
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+      },
       "sections": [
         {
           "title": "Contact Info",
@@ -522,6 +537,11 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-contact-us"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "booking": {
+        "enabled": true,
+        "calendarIdEnv": "BOOKING_CALENDAR_ID_CONTACT_US",
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+      },
       "sections": [
         {
           "title": "Contact Info",
@@ -695,6 +715,11 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["general-lead-form"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "booking": {
+        "enabled": true,
+        "calendarIdEnv": "BOOKING_CALENDAR_ID_GENERAL_LEAD",
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+      },
       "sections": [
         {
           "title": "Contact Info",

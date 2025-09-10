@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import LeadForm from "@/components/LeadForm";
+import BookingWizard from "@/components/BookingWizard";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import { parsePrefillFromSearchParams } from "@/lib/prefill";
 
@@ -35,13 +36,22 @@ export default async function Page({
             shortly.
           </p>
           <hr className="my-6 border-gray-200" />
-          {/* IMPORTANT: pass formConfig and legal */}
-          <LeadForm
-            formSlug={form.slug}
-            formConfig={form as any}
-            legal={(form as any).legal}
-            prefill={prefill}
-          />
+          {/* Use BookingWizard if booking is enabled, otherwise use regular LeadForm */}
+          {form.booking?.enabled ? (
+            <BookingWizard
+              formSlug={form.slug}
+              formConfig={form as any}
+              legal={(form as any).legal}
+              prefill={prefill}
+            />
+          ) : (
+            <LeadForm
+              formSlug={form.slug}
+              formConfig={form as any}
+              legal={(form as any).legal}
+              prefill={prefill}
+            />
+          )}
         </div>
       </div>
     </main>

@@ -26,6 +26,9 @@ export default function LeadForm({
   formConfig,
   legal,
   prefill,
+  isBookingWizard = false,
+  selectedSlotISO,
+  timezone,
 }: {
   formSlug: string;
   title?: string;
@@ -35,6 +38,9 @@ export default function LeadForm({
     terms?: { label: string; href: string };
   };
   prefill?: Prefill;
+  isBookingWizard?: boolean;
+  selectedSlotISO?: string | null;
+  timezone?: string;
 }) {
   const [firstName, setFirstName] = useState(prefill?.firstName ?? "");
   const [lastName, setLastName] = useState(prefill?.lastName ?? "");
@@ -61,6 +67,10 @@ export default function LeadForm({
   const [phonePending, setPhonePending] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<{
     contactId?: string;
+    appointmentId?: string;
+    isBookingWizard?: boolean;
+    selectedSlotISO?: string | null;
+    timezone?: string;
   } | null>(null);
 
   // "attempted" flags - only show validation state after user interaction
@@ -359,24 +369,47 @@ export default function LeadForm({
       if (submitDisabled) return;
       setSubmitting(true);
       try {
-        const res = await fetch("/api/lead", {
+        // Choose API endpoint based on booking wizard mode
+        const apiEndpoint = isBookingWizard ? "/api/appointments" : "/api/lead";
+
+        const payload = isBookingWizard
+          ? {
+              formSlug: formSlug || "form-testing-n8n",
+              contact: {
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                email: email.trim(),
+                phone: toE164(phone, country),
+                country,
+              },
+              answers, // Send dynamic form answers
+              // calendarId is resolved from form config on server side
+              timezone:
+                timezone ||
+                (formConfig.booking as any)?.timezone ||
+                "America/New_York",
+              startISO: selectedSlotISO,
+            }
+          : {
+              formSlug: formSlug || "form-testing-n8n",
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              email: email.trim(),
+              phone: toE164(phone, country),
+              country,
+              consentTransactional,
+              consentMarketing,
+              answers, // Send dynamic form answers
+              // Include calendar/appointment meta if present
+              ...(prefill?.calendar && { calendar: prefill.calendar }),
+              ...(prefill?.apptStart && { apptStart: prefill.apptStart }),
+              ...(prefill?.apptTz && { apptTz: prefill.apptTz }),
+            };
+
+        const res = await fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            formSlug: formSlug || "form-testing-n8n",
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim(),
-            phone: toE164(phone, country),
-            country,
-            consentTransactional,
-            consentMarketing,
-            answers, // Send dynamic form answers
-            // Include calendar/appointment meta if present
-            ...(prefill?.calendar && { calendar: prefill.calendar }),
-            ...(prefill?.apptStart && { apptStart: prefill.apptStart }),
-            ...(prefill?.apptTz && { apptTz: prefill.apptTz }),
-          }),
+          body: JSON.stringify(payload),
         });
         if (res.status === 429) {
           alert("Please try again in a moment.");
@@ -387,7 +420,16 @@ export default function LeadForm({
           try {
             errJson = await res.json();
           } catch {}
-          console.error("Lead submit error", res.status, errJson);
+          console.error("Submit error", res.status, errJson);
+
+          // Handle slot taken error for booking wizard
+          if (isBookingWizard && errJson?.error === "slot_taken") {
+            alert(
+              "This time slot is no longer available. Please go back and select a different time."
+            );
+            return;
+          }
+
           alert(
             `Submit failed (${res.status}). ${
               errJson?.message || "See console for details."
@@ -414,18 +456,35 @@ export default function LeadForm({
           console.log("[LeadForm] submit success", {
             ok: data.ok,
             contactId: data.contactId,
+            appointmentId: data.appointmentId,
             sentAnswers: answers,
-            sentPayload: {
-              formSlug: formSlug || "form-testing-n8n",
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              email: "<redacted>",
-              phone: "<redacted>",
-              country,
-              consentTransactional,
-              consentMarketing,
-              answers,
-            },
+            isBookingWizard,
+            sentPayload: isBookingWizard
+              ? {
+                  formSlug: formSlug || "form-testing-n8n",
+                  contact: {
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
+                    email: "<redacted>",
+                    phone: "<redacted>",
+                    country,
+                  },
+                  answers,
+                  // calendarId resolved from form config on server
+                  timezone: timezone || (formConfig.booking as any)?.timezone,
+                  startISO: selectedSlotISO,
+                }
+              : {
+                  formSlug: formSlug || "form-testing-n8n",
+                  firstName: firstName.trim(),
+                  lastName: lastName.trim(),
+                  email: "<redacted>",
+                  phone: "<redacted>",
+                  country,
+                  consentTransactional,
+                  consentMarketing,
+                  answers,
+                },
           });
         }
 
@@ -442,7 +501,13 @@ export default function LeadForm({
         setEmailReason("");
         setPhoneReason("");
         setAnswers({});
-        setSubmitSuccess({ contactId: data.contactId });
+        setSubmitSuccess({
+          contactId: data.contactId,
+          appointmentId: data.appointmentId,
+          isBookingWizard,
+          selectedSlotISO,
+          timezone,
+        });
         window.scrollTo({ top: 0, behavior: "smooth" });
       } finally {
         setSubmitting(false);
@@ -493,15 +558,49 @@ export default function LeadForm({
     return (
       <div className="sm:col-span-2" role="status" aria-live="polite">
         <h1 className="text-xl font-semibold text-gray-900">
-          Thanks! Your request was received.
+          {submitSuccess.isBookingWizard
+            ? "Appointment Booked!"
+            : "Thanks! Your request was received."}
         </h1>
-        <p className="mt-2 text-sm text-gray-600">We’ll be in touch shortly.</p>
+        <p className="mt-2 text-sm text-gray-600">
+          {submitSuccess.isBookingWizard
+            ? "Your appointment has been successfully scheduled. We'll send you a confirmation email shortly."
+            : "We'll be in touch shortly."}
+        </p>
+
+        {submitSuccess.isBookingWizard && submitSuccess.selectedSlotISO && (
+          <div className="mt-4 p-4 bg-green-50 rounded-md">
+            <p className="text-sm text-green-800">
+              <strong>Appointment Details:</strong>
+            </p>
+            <p className="text-sm text-green-700 mt-1">
+              {new Date(submitSuccess.selectedSlotISO).toLocaleString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                timeZone: submitSuccess.timezone || "America/New_York",
+              })}
+            </p>
+          </div>
+        )}
+
         {submitSuccess.contactId ? (
           <p className="mt-2 text-xs text-gray-500">
             Reference ID:{" "}
             <span className="font-mono">{submitSuccess.contactId}</span>
           </p>
         ) : null}
+
+        {submitSuccess.appointmentId ? (
+          <p className="mt-1 text-xs text-gray-500">
+            Appointment ID:{" "}
+            <span className="font-mono">{submitSuccess.appointmentId}</span>
+          </p>
+        ) : null}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -511,13 +610,15 @@ export default function LeadForm({
             }}
             className={`${BUTTON_BASE} bg-blue-600 text-white hover:bg-blue-700`}
           >
-            Submit another response
+            {submitSuccess.isBookingWizard
+              ? "Book Another Appointment"
+              : "Submit another response"}
           </button>
           <a
-            href="/forms/form-testing-n8n"
+            href={`/forms/${formSlug}`} // Link back to the current form
             className={`${BUTTON_BASE} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`}
           >
-            Back to forms
+            Back to form
           </a>
         </div>
       </div>
