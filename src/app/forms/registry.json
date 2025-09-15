@@ -779,6 +779,21 @@
               "mapCustomFieldIdEnv": "GENERAL_COMPONENTS_ID"
             },
             {
+              "id": "boilerType",
+              "type": "radio",
+              "label": "What type of boiler are you looking for?",
+              "required": true,
+              "options": [
+                { "value": "Wood Boiler", "label": "Wood Boiler" },
+                { "value": "Pellet Boiler", "label": "Pellet Boiler" },
+                { "value": "Coal Boiler", "label": "Coal Boiler" },
+                { "value": "Gas Boiler", "label": "Gas Boiler" },
+                { "value": "Oil Boiler", "label": "Oil Boiler" }
+              ],
+              "mapCustomFieldIdEnv": "GENERAL_BOILER_TYPE_ID",
+              "showIf": { "fieldId": "systemScope", "equals": "Boiler" }
+            },
+            {
               "id": "propertyType",
               "type": "radio",
               "label": "Is this call related to a business or a home?",
@@ -919,6 +934,21 @@
                 { "value": "Water Tank", "label": "Water Tank" }
               ],
               "mapCustomFieldIdEnv": "GOOGLE_COMPONENTS_ID"
+            },
+            {
+              "id": "boilerType",
+              "type": "radio",
+              "label": "What type of boiler are you looking for?",
+              "required": true,
+              "options": [
+                { "value": "Wood Boiler", "label": "Wood Boiler" },
+                { "value": "Pellet Boiler", "label": "Pellet Boiler" },
+                { "value": "Coal Boiler", "label": "Coal Boiler" },
+                { "value": "Gas Boiler", "label": "Gas Boiler" },
+                { "value": "Oil Boiler", "label": "Oil Boiler" }
+              ],
+              "mapCustomFieldIdEnv": "GOOGLE_BOILER_TYPE_ID",
+              "showIf": { "fieldId": "systemScope", "equals": "Boiler" }
             },
             {
               "id": "propertyType",
