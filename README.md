@@ -276,3 +276,5 @@ From `src/app/forms/registry.json`:
 
 - Legacy `formsMap.ts` and dynamic `formsRegistry.ts` coexist; `/api/lead` still uses the legacy map. Recommend consolidation.
 - Ensure all required envs are set in deployment: `LC_PRIVATE_TOKEN`, `LC_API_VERSION`, `LC_BASE_URL`, and registry-resolved `LC_LOCATION_ID`.
+
+-
