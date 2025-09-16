@@ -6,6 +6,9 @@ import { parsePrefillFromSearchParams } from "@/lib/prefill";
 import SiteHeader from "@/components/SiteHeader";
 import Image from "next/image";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function Page({
   params,
   searchParams,

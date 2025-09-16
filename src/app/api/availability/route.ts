@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lcGetFreeSlots } from "@/lib/leadconnector";
 import { getFormBySlug } from "@/lib/formsRegistry";
-import { startOfTodayMs } from "@/lib/time";
+import { startOfTodayMs, nowEpoch, addMinutesEpoch } from "@/lib/time";
 
 export const runtime = "nodejs";
 
@@ -199,14 +199,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Filter out today and weekends by date key
+    // Lead time cutoff in epoch
+    const lead = form.booking?.minLeadMinutes ?? 60;
+    const cutoffEpoch = addMinutesEpoch(nowEpoch(), lead);
+
+    // Filter by date key to hide today and weekends completely
+    let weekendTodayDropped = 0;
+    const slotsByDate: Record<string, { slots: string[] }> = {};
     for (const [ymd, obj] of Object.entries(rawSlots)) {
-      // drop whole day if today or weekend
-      if (ymd === todayKey) continue;
-      if (isWeekendKey(ymd, timezone)) continue;
+      if (ymd === todayKey || isWeekendKey(ymd, timezone)) {
+        weekendTodayDropped++;
+        continue;
+      }
       const slots = Array.isArray(obj?.slots) ? obj.slots : [];
-      if (slots.length) filteredByDateKey[ymd] = { slots };
+      slotsByDate[ymd] = { slots };
     }
+
+    // Apply cutoff filtering using epoch only
+    const filteredByCutoff: Record<string, { slots: string[] }> = {};
+    for (const [dateKey, obj] of Object.entries(slotsByDate)) {
+      const kept = (obj.slots ?? []).filter((iso: string) => {
+        const slotEpoch = Date.parse(iso);
+        return slotEpoch >= cutoffEpoch;
+      });
+      if (kept.length) filteredByCutoff[dateKey] = { slots: kept };
+    }
+
+    const totalSlots = Object.values(slotsByDate).reduce(
+      (n, d) => n + (d.slots?.length ?? 0),
+      0
+    );
+    const remainingSlots = Object.values(filteredByCutoff).reduce(
+      (n, d) => n + (d.slots?.length ?? 0),
+      0
+    );
+    console.log("[availability] cutoff filtering", {
+      slug,
+      lead,
+      totalSlots,
+      remainingSlots,
+      dropped: totalSlots - remainingSlots,
+      weekendTodayDropped,
+    });
 
     console.log("[availability] filtered by date key", {
       slug,
@@ -219,7 +253,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      slots: filteredByDateKey,
+      slots: filteredByCutoff,
       ...(traceId && { traceId }),
     });
   } catch (error: any) {

@@ -1,16 +1,33 @@
 "use client";
+/**
+ * BookingStep renders Step 1 of the booking flow: date/time selection.
+ *
+ * Responsibilities:
+ * - Fetches availability from /api/availability and renders ONLY the dates/slots provided by the API.
+ * - Applies epoch-based lead-time disabling in the UI as a secondary guard.
+ * - Emits the selected ISO slot to its parent (BookingWizard).
+ *
+ * Notes:
+ * - THIS COMPONENT DOES NOT CALL LEADCONNECTOR DIRECTLY.
+ * - No local calendar grid or synthetic half-hour generation is allowed.
+ * - If the API returns no dates, render an explicit empty state.
+ */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import {
+  addMinutesEpoch,
+  nowEpoch,
+  labelFromDateKey,
+  labelFromSlotISO,
+} from "@/lib/time";
 
-type FreeSlot = {
-  date: string; // YYYY-MM-DD
-  times: string[]; // ['13:30', '14:00', ...]
-};
+type ApiSlotsByDate = Record<string, { slots: string[] }>;
 
 type BookingStepProps = {
   formSlug: string;
   timezone: string;
+  minLeadMinutes: number;
   onSelect: (slotISO: string) => void;
 };
 
@@ -20,14 +37,14 @@ const BUTTON_BASE =
 export default function BookingStep({
   formSlug,
   timezone,
+  minLeadMinutes,
   onSelect,
 }: BookingStepProps) {
-  const [slots, setSlots] = useState<FreeSlot[]>([]);
+  const [apiSlots, setApiSlots] = useState<ApiSlotsByDate>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
+  const [selectedSlotISO, setSelectedSlotISO] = useState<string | null>(null);
 
   // Debounced availability fetching
   const fetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,22 +52,6 @@ export default function BookingStep({
   const debounce = (cb: () => void, ms = 300) => {
     if (fetchTimer.current) clearTimeout(fetchTimer.current);
     fetchTimer.current = setTimeout(cb, ms);
-  };
-
-  // Transform API response (object with date keys) to our format
-  const transformSlotsFromAPI = (
-    apiSlots: Record<string, { slots: string[] }>
-  ): FreeSlot[] => {
-    return Object.entries(apiSlots).map(([date, dayData]) => {
-      const times = dayData.slots
-        .map((slotISO) => {
-          const date = new Date(slotISO);
-          return date.toTimeString().split(" ")[0].substring(0, 5); // HH:MM
-        })
-        .sort();
-
-      return { date, times };
-    });
   };
 
   const fetchAvailability = useCallback(
@@ -80,26 +81,17 @@ export default function BookingStep({
           throw new Error(errorMessage);
         }
 
-        // API now returns object with date keys - transform to our format
-        const slotsByDate = data.slots || {};
+        // API returns object with date keys
+        const slotsByDate = (data.slots || {}) as ApiSlotsByDate;
         console.log("[BookingStep] received slots", {
           dateKeys: Object.keys(slotsByDate),
           traceId: data.traceId,
         });
-
-        const transformedSlots = transformSlotsFromAPI(slotsByDate);
-        setSlots(transformedSlots);
-
-        // Auto-select first available date if none selected
-        // Server already filters out today and weekends, so just pick first
-        if (!selectedDate && transformedSlots.length > 0) {
-          const firstSlot = transformedSlots.find(
-            (slot: FreeSlot) => slot.times.length > 0
-          );
-          if (firstSlot) {
-            setSelectedDate(firstSlot.date);
-          }
-        }
+        setApiSlots(slotsByDate);
+        console.log(
+          "[booking-ui] api slots keys",
+          Object.keys(slotsByDate || {})
+        );
       } catch (e: any) {
         console.error("[BookingStep] availability error:", e);
         setError(e.message || "Failed to load availability");
@@ -107,14 +99,14 @@ export default function BookingStep({
         setLoading(false);
       }
     },
-    [formSlug, timezone, selectedDate]
+    [formSlug, timezone]
   );
 
-  // Fetch availability on mount and when month changes
+  // Fetch availability on mount (current month window)
   useEffect(() => {
-    const start = new Date(currentMonth);
+    const start = new Date();
     start.setDate(1);
-    const end = new Date(currentMonth);
+    const end = new Date();
     end.setMonth(end.getMonth() + 1);
     end.setDate(0); // Last day of current month
 
@@ -122,76 +114,81 @@ export default function BookingStep({
     const endStr = end.toISOString().split("T")[0];
 
     debounce(() => fetchAvailability(startStr, endStr));
-  }, [currentMonth, fetchAvailability]);
+  }, [fetchAvailability]);
 
-  // Group slots by date for easier display
-  const slotsByDate = useMemo(() => {
-    const grouped: Record<string, string[]> = {};
-    slots.forEach((slot) => {
-      if (slot.times.length > 0) {
-        grouped[slot.date] = slot.times;
-      }
-    });
-    return grouped;
-  }, [slots]);
+  // Compute date keys strictly from API data
+  const dateKeys = useMemo(() => {
+    const keys = Object.keys(apiSlots || {});
+    const filtered = keys.filter(
+      (k) =>
+        Array.isArray(apiSlots[k]?.slots) &&
+        (apiSlots[k]?.slots?.length || 0) > 0
+    );
+    return filtered.sort();
+  }, [apiSlots]);
 
-  // Get available dates for current month (server already filters out today/weekends)
-  const availableDates = useMemo(() => {
-    return Object.keys(slotsByDate).sort();
-  }, [slotsByDate]);
-
-  // Get times for selected date
-  const availableTimes = useMemo(() => {
-    if (!selectedDate) return [];
-    return slotsByDate[selectedDate] || [];
-  }, [selectedDate, slotsByDate]);
-
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setSelectedTime(null); // Reset time selection
-  };
-
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-
-    // Create ISO string for the selected slot
-    const slotISO = new Date(`${selectedDate}T${time}:00`).toISOString();
-    onSelect(slotISO);
-  };
-
-  const handleMonthChange = (direction: "prev" | "next") => {
-    const newMonth = new Date(currentMonth);
-    if (direction === "prev") {
-      newMonth.setMonth(newMonth.getMonth() - 1);
-    } else {
-      newMonth.setMonth(newMonth.getMonth() + 1);
+  // Dev-only runtime mismatch guard (keep warning only; no debug logs)
+  if (process.env.NODE_ENV !== "production") {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const uiHasToday = dateKeys.includes(todayKey);
+    if (uiHasToday) {
+      console.warn(
+        "[booking-ui] WARNING: API returned today as a date key, which is unexpected if filtering is active."
+      );
     }
-    setCurrentMonth(newMonth);
-    setSelectedDate(null);
-    setSelectedTime(null);
+  }
+
+  // Ensure activeDateKey is valid whenever data changes
+  useEffect(() => {
+    if (!dateKeys.length) {
+      setActiveDateKey(null);
+      setSelectedSlotISO(null);
+      return;
+    }
+    if (!activeDateKey || !dateKeys.includes(activeDateKey)) {
+      setActiveDateKey(dateKeys[0]);
+      setSelectedSlotISO(null);
+    }
+  }, [dateKeys, activeDateKey]);
+
+  // Slots for the active date (ISO strings)
+  const slotsForDay: string[] = useMemo(() => {
+    if (!activeDateKey) return [];
+    const list = apiSlots?.[activeDateKey]?.slots;
+    return Array.isArray(list) ? (list as string[]) : [];
+  }, [apiSlots, activeDateKey]);
+
+  // Lead-time cutoff (epoch)
+  const cutoffEpoch = useMemo(
+    () => addMinutesEpoch(nowEpoch(), minLeadMinutes),
+    [minLeadMinutes]
+  );
+  const isDisabledIso = useCallback(
+    (iso: string) => Date.parse(iso) < cutoffEpoch,
+    [cutoffEpoch]
+  );
+
+  const handleSlotSelect = (iso: string) => {
+    setSelectedSlotISO(iso);
+    onSelect(iso);
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  // Removed local month navigation; dates come strictly from API
 
-  const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":");
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
+  const formatDate = (dateStr: string) => labelFromDateKey(dateStr, timezone);
 
-  const isSlotSelected = selectedDate && selectedTime;
+  const formatTimeISO = (iso: string) => labelFromSlotISO(iso, timezone);
+
+  const canContinue =
+    !!selectedSlotISO &&
+    !isDisabledIso(selectedSlotISO) &&
+    slotsForDay.includes(selectedSlotISO);
+
+  // Clean: remove debug logs in production build
 
   return (
     <div className="space-y-6">
+      {/* dev watermark removed */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
           Select Date & Time
@@ -208,36 +205,13 @@ export default function BookingStep({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Date Selection */}
+        {/* Date Selection (from API only) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-900">
               Available Dates
             </h3>
-            <div className="flex items-center space-x-2">
-              <button
-                type="button"
-                onClick={() => handleMonthChange("prev")}
-                disabled={loading}
-                className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronLeftIcon className="h-4 w-4" />
-              </button>
-              <span className="text-sm text-gray-600 min-w-[120px] text-center">
-                {currentMonth.toLocaleDateString("en-US", {
-                  month: "long",
-                  year: "numeric",
-                })}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleMonthChange("next")}
-                disabled={loading}
-                className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronRightIcon className="h-4 w-4" />
-              </button>
-            </div>
+            <div />
           </div>
 
           {loading ? (
@@ -249,43 +223,44 @@ export default function BookingStep({
                 />
               ))}
             </div>
-          ) : availableDates.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No available dates this month
+          ) : dateKeys.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              No available dates were returned by the API for this range. Try
+              another form, or verify calendar availability in LeadConnector.
             </div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {availableDates.map((date) => (
+              {dateKeys.map((k) => (
                 <button
-                  key={date}
+                  key={k}
                   type="button"
-                  onClick={() => handleDateSelect(date)}
+                  onClick={() => setActiveDateKey(k)}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                    selectedDate === date
+                    activeDateKey === k
                       ? "bg-blue-100 text-blue-900 border border-blue-300"
                       : "hover:bg-gray-100 text-gray-900"
                   }`}
                 >
-                  {formatDate(date)}
+                  {formatDate(k)}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Time Selection */}
+        {/* Time Selection (from API only) */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-gray-900">
             Available Times
-            {selectedDate && (
+            {activeDateKey && (
               <span className="text-gray-500 font-normal">
                 {" "}
-                for {formatDate(selectedDate)}
+                for {formatDate(activeDateKey)}
               </span>
             )}
           </h3>
 
-          {!selectedDate ? (
+          {!activeDateKey ? (
             <div className="text-center py-8 text-gray-500">
               Select a date to see available times
             </div>
@@ -298,40 +273,62 @@ export default function BookingStep({
                 />
               ))}
             </div>
-          ) : availableTimes.length === 0 ? (
+          ) : slotsForDay.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No available times for this date
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {availableTimes.map((time) => (
-                <button
-                  key={time}
-                  type="button"
-                  onClick={() => handleTimeSelect(time)}
-                  className={`px-3 py-2 rounded-md text-sm transition-colors ${
-                    selectedTime === time
-                      ? "bg-blue-100 text-blue-900 border border-blue-300"
-                      : "hover:bg-gray-100 text-gray-900 border border-gray-200"
-                  }`}
-                >
-                  {formatTime(time)}
-                </button>
-              ))}
+              {slotsForDay.map((iso) => {
+                const disabled = isDisabledIso(iso);
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => !disabled && handleSlotSelect(iso)}
+                    disabled={disabled}
+                    title={
+                      disabled
+                        ? "Time has passed or lead time not met"
+                        : undefined
+                    }
+                    className={`px-3 py-2 rounded-md text-sm transition-colors ${
+                      disabled
+                        ? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-500 border border-gray-200"
+                        : selectedSlotISO === iso
+                        ? "bg-blue-100 text-blue-900 border border-blue-300"
+                        : "hover:bg-gray-100 text-gray-900 border border-gray-200"
+                    }`}
+                  >
+                    {formatTimeISO(iso)}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {/* Selection Summary */}
-      {isSlotSelected && (
+      {selectedSlotISO && (
         <div className="rounded-md bg-green-50 p-4">
           <div className="text-sm text-green-800">
-            <strong>Selected:</strong> {formatDate(selectedDate!)} at{" "}
-            {formatTime(selectedTime!)}
+            <strong>Selected:</strong>{" "}
+            {new Date(selectedSlotISO).toLocaleString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
           </div>
         </div>
       )}
+
+      {/* debug overlay removed */}
     </div>
   );
 }
+
+// Static dev marker for verification from parent components
+(BookingStep as any).__MARK = "API_ONLY_BOOKING_STEP_v1" as const;

@@ -84,7 +84,8 @@
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_1",
-        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT",
+        "minLeadMinutes": 60
       },
       "sections": [
         {
@@ -234,7 +235,8 @@
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_2_BOILERS",
-        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT",
+        "minLeadMinutes": 60
       },
       "sections": [
         {
@@ -385,7 +387,8 @@
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_3_FCU",
-        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT",
+        "minLeadMinutes": 60
       },
       "sections": [
         {
@@ -540,7 +543,8 @@
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_CONTACT_US",
-        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT",
+        "minLeadMinutes": 60
       },
       "sections": [
         {
@@ -718,7 +722,8 @@
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_GENERAL_LEAD",
-        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT"
+        "timezoneEnv": "BOOKING_TIMEZONE_DEFAULT",
+        "minLeadMinutes": 60
       },
       "sections": [
         {

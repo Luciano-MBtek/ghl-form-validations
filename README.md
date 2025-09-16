@@ -1,3 +1,28 @@
+## Booking Architecture
+
+- BookingStep (client) -> `/api/availability` (server) -> LeadConnector free-slots (external).
+- BookingWizard orchestrates steps and never calls LeadConnector directly.
+- The server normalizes availability to `{ [YYYY-MM-DD]: { slots: string[] } }`.
+- Lead-time and weekend/today filtering happens on the server; the UI must render exactly what the server returns (no local date/time generation).
+- Appointments are created by `/api/appointments` (separate step).
+
+Key files:
+
+- `src/components/BookingWizard.tsx`
+- `src/components/BookingStep.tsx`
+- `src/app/api/availability/route.ts`
+- `src/app/api/appointments/route.ts`
+
+Sequence (simplified):
+
+```
+BookingStep (client)
+  -> GET /api/availability (server)
+      -> LeadConnector (free-slots)
+      <- normalized slots { [YYYY-MM-DD]: { slots: ISO[] } }
+<- render dates/times from normalized payload
+```
+
 ## Overview
 
 This repository is a Next.js 14+ (App Router) application that renders validated lead forms and upserts contacts into LeadConnector (GHL). The app provides live server-side validation for email and phone on blur, optional workflow enrollment, and dynamic form fields defined in a JSON registry.
