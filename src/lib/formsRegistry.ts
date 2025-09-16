@@ -11,6 +11,7 @@ export type BookingConfig = {
   timezoneEnv?: string;
   calendarId?: string;
   timezone?: string;
+  minLeadMinutes?: number;
 };
 export type FormConfigResolved = FormConfig & {
   locationId?: string;
@@ -69,6 +70,7 @@ export function listForms(): FormConfigResolved[] {
             resolveEnv((f as any).booking.timezoneEnv) ||
             process.env.BOOKING_TIMEZONE_DEFAULT ||
             "America/New_York",
+          minLeadMinutes: (f as any).booking.minLeadMinutes ?? 60,
         }
       : undefined;
 

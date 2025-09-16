@@ -1,14 +1,26 @@
 "use client";
+/**
+ * BookingWizard orchestrates the two-step booking flow UI.
+ *
+ * Responsibilities:
+ * - Step 1: Renders BookingStep (date/time selection) which fetches availability from /api/availability.
+ * - Step 2: Renders LeadForm (contact details) and forwards the selected slot/timezone as prefill.
+ *
+ * Notes:
+ * - THIS COMPONENT DOES NOT CALL LEADCONNECTOR DIRECTLY.
+ * - It never hits external APIs. All data comes from our server routes.
+ * - Source of truth for available dates/times is the server response consumed by BookingStep.
+ */
 
 import { useState, useCallback } from "react";
-import type { FormConfig } from "@/lib/formsRegistry";
+import type { FormConfigResolved } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
 import BookingStep from "./BookingStep";
 import LeadForm from "./LeadForm";
 
 type BookingWizardProps = {
   formSlug: string;
-  formConfig: FormConfig;
+  formConfig: FormConfigResolved;
   legal?: {
     privacy?: { label: string; href: string };
     terms?: { label: string; href: string };
@@ -25,6 +37,7 @@ export default function BookingWizard({
   legal,
   prefill,
 }: BookingWizardProps) {
+  // Clean: removed dev marker logs
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedSlotISO, setSelectedSlotISO] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string>(
@@ -106,6 +119,7 @@ export default function BookingWizard({
         >
           Contact Info
         </div>
+        {/* dev badge removed */}
       </div>
 
       {/* Step 1: Booking */}
@@ -114,6 +128,7 @@ export default function BookingWizard({
           <BookingStep
             formSlug={formSlug}
             timezone={timezone}
+            minLeadMinutes={formConfig.booking?.minLeadMinutes ?? 60}
             onSelect={handleSlotSelect}
           />
 
@@ -173,7 +188,7 @@ export default function BookingWizard({
             legal={legal}
             prefill={{
               ...prefill,
-              apptStart: selectedSlotISO,
+              apptStart: selectedSlotISO || undefined,
               apptTz: timezone,
             }}
             isBookingWizard={true}
