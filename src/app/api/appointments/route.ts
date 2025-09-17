@@ -13,6 +13,8 @@ import {
 } from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
 import { isWeekendISO, isSameDayISO } from "@/lib/time";
+import { getRecaptchaEnabled, getRecaptchaSlugs } from "@/lib/env";
+import { verifyRecaptchaV2 } from "@/lib/recaptcha";
 
 export const runtime = "nodejs";
 
@@ -81,6 +83,41 @@ export async function POST(req: NextRequest) {
 
     // Validate booking configuration
     if (!form.booking?.enabled) {
+      // Optional: enforce reCAPTCHA for specific slugs
+      try {
+        const mustCaptcha =
+          getRecaptchaEnabled() && getRecaptchaSlugs().includes(form.slug);
+        if (mustCaptcha) {
+          const anyReq = req as any;
+          const ipHeader = (anyReq.headers?.get?.("x-forwarded-for") || "")
+            .split(",")[0]
+            .trim();
+          const ip = ipHeader || undefined;
+          const captchaToken = (body as any).captchaToken as string | undefined;
+          // debug removed
+          const check = await verifyRecaptchaV2(captchaToken || "", ip);
+          if (!check.ok) {
+            return NextResponse.json(
+              {
+                ok: false,
+                message: "Captcha verification failed",
+                reason: check.reason,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      } catch (e) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Captcha verification failed",
+            reason: "exception",
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
         { ok: false, message: "Booking not enabled for this form" },
         { status: 400 }
@@ -119,11 +156,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, errors }, { status: 422 });
     }
 
-    console.log("[booking] creating appointment", {
-      formSlug: body.formSlug,
-      timezone: body.timezone,
-      startISO: body.startISO,
-    });
+    // debug removed
 
     // --- 1) Build CFs array (labels) ---
     const customFieldsArray: Array<{ id: string; value: string }> = [];
@@ -146,7 +179,7 @@ export async function POST(req: NextRequest) {
 
       customFieldsArray.push({ id: field.mapCustomFieldId, value });
     }
-    console.log("[booking] CFs resolved:", customFieldsArray);
+    // debug removed
 
     // --- 2) Base payload (no CFs) ---
     const phoneE164 = toE164FromNational(
@@ -183,13 +216,11 @@ export async function POST(req: NextRequest) {
     try {
       rawUpsert = await lcUpsertContact(upsertPayload);
       contactId = pickContactId(rawUpsert);
-      console.log("[booking] upsert -> id:", contactId);
     } catch (err: any) {
       if (err?.status === 404 || err?.status === 405) {
         try {
           const created = await lcCreateContact(basePayload);
           contactId = pickContactId(created);
-          console.log("[booking] create -> id:", contactId);
         } catch (ce: any) {
           const dupId =
             ce?.details?.meta?.contactId ??
@@ -197,10 +228,7 @@ export async function POST(req: NextRequest) {
             ce?.response?.data?.meta?.contactId;
           if (!dupId) throw ce;
           contactId = dupId;
-          console.log(
-            "[booking] duplicate create, using meta.contactId:",
-            dupId
-          );
+          // debug removed
           await lcUpdateContact(dupId, basePayload);
         }
       } else {
@@ -216,8 +244,7 @@ export async function POST(req: NextRequest) {
           const found = await lcGetContactsByQuery(basePayload.email, locId);
           contactId =
             pickContactId(found?.contacts?.[0]) ?? found?.contacts?.[0]?.id;
-          if (contactId)
-            console.log("[booking] recovered id by email:", contactId);
+          // debug removed
         } catch (e) {}
       }
       if (!contactId && phoneE164) {
@@ -225,8 +252,7 @@ export async function POST(req: NextRequest) {
           const found = await lcGetContactsByQuery(phoneE164, locId);
           contactId =
             pickContactId(found?.contacts?.[0]) ?? found?.contacts?.[0]?.id;
-          if (contactId)
-            console.log("[booking] recovered id by phone:", contactId);
+          // debug removed
         } catch (e) {}
       }
     }
@@ -250,7 +276,7 @@ export async function POST(req: NextRequest) {
       try {
         await lcUpdateContact(contactId, { customFields: customFieldsArray });
         sentCFs = customFieldsArray.length;
-        console.log("[booking] custom fields updated:", sentCFs);
+        // debug removed
       } catch (e) {
         console.warn("[booking] failed to PUT customFields:", e);
       }
@@ -319,15 +345,7 @@ export async function POST(req: NextRequest) {
       .trim();
     const apptTitle = fullName || body.contact?.email || "Booking";
 
-    console.log("[booking] try create", {
-      slug: body.formSlug,
-      loc: form.locationId,
-      cal: form.booking.calendarId,
-      start: startTimeIso,
-      end: endTimeIso,
-      tz: body.timezone,
-      apptTitle,
-    });
+    // debug removed
 
     let appointmentId: string;
     try {
@@ -343,7 +361,6 @@ export async function POST(req: NextRequest) {
         source: form.slug,
       });
       appointmentId = appointment.id;
-      console.log("[booking] appointment created:", appointmentId);
     } catch (e: any) {
       console.error("[booking] appointment creation failed:", e);
 
@@ -404,7 +421,7 @@ export async function POST(req: NextRequest) {
           form.workflowId,
           form.locationId || ""
         );
-        console.log("[booking] contact added to workflow:", form.workflowId);
+        // debug removed
       } catch (e) {
         console.warn("[booking] workflow enrollment failed:", e);
       }

@@ -232,6 +232,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-2-calendar-boilers"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_2_BOILERS",

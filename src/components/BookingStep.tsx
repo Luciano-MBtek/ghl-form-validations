@@ -83,15 +83,7 @@ export default function BookingStep({
 
         // API returns object with date keys
         const slotsByDate = (data.slots || {}) as ApiSlotsByDate;
-        console.log("[BookingStep] received slots", {
-          dateKeys: Object.keys(slotsByDate),
-          traceId: data.traceId,
-        });
         setApiSlots(slotsByDate);
-        console.log(
-          "[booking-ui] api slots keys",
-          Object.keys(slotsByDate || {})
-        );
       } catch (e: any) {
         console.error("[BookingStep] availability error:", e);
         setError(e.message || "Failed to load availability");
@@ -128,15 +120,7 @@ export default function BookingStep({
   }, [apiSlots]);
 
   // Dev-only runtime mismatch guard (keep warning only; no debug logs)
-  if (process.env.NODE_ENV !== "production") {
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const uiHasToday = dateKeys.includes(todayKey);
-    if (uiHasToday) {
-      console.warn(
-        "[booking-ui] WARNING: API returned today as a date key, which is unexpected if filtering is active."
-      );
-    }
-  }
+  // Production cleanup: remove dev-only warnings
 
   // Ensure activeDateKey is valid whenever data changes
   useEffect(() => {

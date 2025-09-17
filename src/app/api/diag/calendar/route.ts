@@ -54,12 +54,7 @@ export async function GET(req: NextRequest) {
       ...(locationId && { "Location-Id": locationId }),
     };
 
-    console.log("[diag/calendar] testing calendar access:", {
-      calendarId,
-      version,
-      hasLocationId: !!locationId,
-      locationIdHeaderUsed: !!locationId,
-    });
+    // debug removed
 
     const response = await fetch(url, {
       method: "GET",
@@ -72,12 +67,7 @@ export async function GET(req: NextRequest) {
       body = await response.json();
     } catch {}
 
-    console.log("[diag/calendar] response:", {
-      status: response.status,
-      statusText: response.statusText,
-      hasBody: !!body,
-      traceId: body?.traceId,
-    });
+    // debug removed
 
     return NextResponse.json({
       ok: response.ok,

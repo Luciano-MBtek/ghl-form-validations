@@ -14,10 +14,7 @@ export const getContactId = (d: LCContactIdish): string | undefined =>
   (d && (d as any).id) || (d && (d as any).contactId) || undefined;
 
 const dbg = (...args: any[]) => {
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log("[LC]", ...args);
-  }
+  // production cleanup: silent debug helper
 };
 
 export { dbg };
@@ -208,7 +205,7 @@ export async function lcGetFreeSlots(args: {
     ...(locationId && { "Location-Id": locationId }),
   };
 
-  console.log("[LC free-slots] Version:", CAL_VER, "Location-Id:", locationId);
+  // debug removed
 
   const params = new URLSearchParams({
     startDate: startDateMs.toString(),
@@ -295,7 +292,7 @@ export async function lcCreateAppointment(args: {
   } = args;
 
   const version = process.env.LC_API_VERSION || "2021-07-28";
-  console.log("[LC appt] Version:", version, "Location-Id:", locationId);
+  // debug removed
 
   const url = `${BASE}/calendars/events/appointments`;
   const headers = {
@@ -327,8 +324,7 @@ export async function lcCreateAppointment(args: {
   };
 
   // Debug log with scrubbed payload
-  const debugPayload = { ...payload };
-  console.log("[LC appt] payload", debugPayload);
+  // debug removed
 
   try {
     const response = await fetch(url, {
@@ -359,9 +355,7 @@ export async function lcCreateAppointment(args: {
           errorText.includes("endtime") ||
           errorText.includes("invalid date")
         ) {
-          console.log(
-            "[LC appt] retrying with epoch milliseconds due to date format error"
-          );
+          // debug removed
 
           // Retry with epoch milliseconds
           const isoToMs = (iso: string) => new Date(iso).getTime();
@@ -371,7 +365,7 @@ export async function lcCreateAppointment(args: {
             endTime: isoToMs(endTimeIso),
           };
 
-          console.log("[LC appt] retry payload", payloadMs);
+          // debug removed
 
           const retryResponse = await fetch(url, {
             method: "POST",
@@ -382,7 +376,6 @@ export async function lcCreateAppointment(args: {
 
           if (retryResponse.ok) {
             const retryData = await retryResponse.json();
-            console.log("[LC appt] retry successful");
             return retryData;
           }
 
