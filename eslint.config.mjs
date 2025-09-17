@@ -19,6 +19,10 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
     ],
+    rules: {
+      // Guard against nested components that remount inputs and cause blur
+      "react/no-unstable-nested-components": "warn",
+    },
   },
 ];
 

@@ -8,6 +8,168 @@ const devLog = (...args: any[]) => {
   if (process.env.NODE_ENV !== "production") console.log(...args);
 };
 
+// NOTE: These presentational components are defined at file scope to avoid
+// unstable nested component identities that can cause input remounts/blur.
+function Spinner({
+  className = "h-4 w-4 text-gray-400",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      className={`animate-spin ${className}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      />
+    </svg>
+  );
+}
+
+function EmailHelper({
+  attempted,
+  pending,
+  valid,
+}: {
+  attempted: boolean;
+  pending: boolean;
+  valid: boolean | null;
+}) {
+  if (!attempted) return null;
+  if (pending) return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
+  if (valid === false)
+    return <p className="mt-1 text-sm text-red-600">Invalid email.</p>;
+  return null;
+}
+
+function PhoneHelper({
+  attempted,
+  pending,
+  valid,
+}: {
+  attempted: boolean;
+  pending: boolean;
+  valid: boolean | null;
+}) {
+  if (!attempted) return null;
+  if (pending) return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
+  if (valid === false)
+    return <p className="mt-1 text-sm text-red-600">Invalid phone number.</p>;
+  return null;
+}
+
+type RenderFieldProps = {
+  field: any;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+};
+
+function RenderField({ field, value, onChange, error }: RenderFieldProps) {
+  if (field.type === "radio") {
+    return (
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-800">
+          {field.label}{" "}
+          {field.required ? <span className="text-red-500">*</span> : null}
+        </label>
+        <div className="space-y-2">
+          {(field.options || []).map((opt: any) => (
+            <label key={opt.value} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name={field.id}
+                value={opt.value}
+                checked={value === String(opt.value)}
+                onChange={(e) => onChange(e.target.value)}
+                required={field.required}
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-gray-800">
+          {field.label}{" "}
+          {field.required ? <span className="text-red-500">*</span> : null}
+        </label>
+        <select
+          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={field.required}
+        >
+          <option value="" disabled hidden></option>
+          {(field.options || []).map((opt: any) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (field.type === "textarea") {
+    return (
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-gray-800">
+          {field.label}{" "}
+          {field.required ? <span className="text-red-500">*</span> : null}
+        </label>
+        <textarea
+          rows={field.rows ?? 4}
+          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          required={field.required}
+        />
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-gray-800">
+        {field.label}{" "}
+        {field.required ? <span className="text-red-500">*</span> : null}
+      </label>
+      <input
+        type={field.type || "text"}
+        className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.placeholder}
+        required={field.required}
+      />
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
 type ValidateResponse = {
   emailValid?: boolean | null;
   emailReason?: string;
@@ -180,54 +342,7 @@ export default function LeadForm({
   const showEmailState = emailPending || emailAttempted;
   const showPhoneState = phonePending || phoneAttempted;
 
-  // Helper components
-  function EmailHelper() {
-    if (!emailAttempted) return null;
-    if (emailPending)
-      return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
-    if (emailValid === false)
-      return <p className="mt-1 text-sm text-red-600">Invalid email.</p>;
-    // valid === true or null → no helper
-    return null;
-  }
-
-  function PhoneHelper() {
-    if (!phoneAttempted) return null;
-    if (phonePending)
-      return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
-    if (phoneValid === false)
-      return <p className="mt-1 text-sm text-red-600">Invalid phone number.</p>;
-    return null;
-  }
-
-  function Spinner({
-    className = "h-4 w-4 text-gray-400",
-  }: {
-    className?: string;
-  }) {
-    return (
-      <svg
-        className={`animate-spin ${className}`}
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-        />
-      </svg>
-    );
-  }
+  // Helper components moved to file scope above to keep identities stable
 
   // ------------ validation calls ------------
   async function runEmailValidation(value: string) {
@@ -741,7 +856,11 @@ export default function LeadForm({
         </div>
         {emailAttempted && (emailPending || emailValid === false) && (
           <div id="email-help" aria-live="polite">
-            <EmailHelper />
+            <EmailHelper
+              attempted={emailAttempted}
+              pending={emailPending}
+              valid={emailValid}
+            />
           </div>
         )}
       </div>
@@ -839,7 +958,11 @@ export default function LeadForm({
         })()}
         {phoneAttempted && (phonePending || phoneValid === false) && (
           <div id="phone-help" aria-live="polite">
-            <PhoneHelper />
+            <PhoneHelper
+              attempted={phoneAttempted}
+              pending={phonePending}
+              valid={phoneValid}
+            />
           </div>
         )}
       </div>
@@ -859,7 +982,13 @@ export default function LeadForm({
             ) : null}
             <div className="space-y-4">
               {nonCore.map((field: any) => (
-                <RenderField key={field.id} field={field} />
+                <RenderField
+                  key={field.id}
+                  field={field}
+                  value={answers[field.id] ?? ""}
+                  onChange={(v) => setAnswer(field.id, v)}
+                  error={dynErrors[field.id]}
+                />
               ))}
             </div>
             <hr className="my-4 border-gray-200" />
@@ -944,107 +1073,5 @@ export default function LeadForm({
     </form>
   );
 
-  function RenderField({ field }: { field: any }) {
-    if (field.map && CORE_MAPS.has(field.map)) return null;
-    if (!isVisible(field, answers)) return null;
-    const value = answers[field.id] ?? "";
-
-    if (field.type === "radio") {
-      return (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-800">
-            {field.label}{" "}
-            {field.required ? <span className="text-red-500">*</span> : null}
-          </label>
-          <div className="space-y-2">
-            {(field.options || []).map((opt: any) => (
-              <label key={opt.value} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name={field.id}
-                  value={opt.value}
-                  checked={value === String(opt.value)}
-                  onChange={(e) => setAnswer(field.id, e.target.value)}
-                  required={field.required}
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
-          {dynErrors[field.id] ? (
-            <p className="text-sm text-red-600">{dynErrors[field.id]}</p>
-          ) : null}
-        </div>
-      );
-    }
-
-    if (field.type === "select") {
-      return (
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-800">
-            {field.label}{" "}
-            {field.required ? <span className="text-red-500">*</span> : null}
-          </label>
-          <select
-            className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            value={value}
-            onChange={(e) => setAnswer(field.id, e.target.value)}
-            required={field.required}
-          >
-            <option value="" disabled hidden></option>
-            {(field.options || []).map((opt: any) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {dynErrors[field.id] ? (
-            <p className="text-sm text-red-600">{dynErrors[field.id]}</p>
-          ) : null}
-        </div>
-      );
-    }
-
-    if (field.type === "textarea") {
-      return (
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-800">
-            {field.label}{" "}
-            {field.required ? <span className="text-red-500">*</span> : null}
-          </label>
-          <textarea
-            rows={field.rows ?? 4}
-            className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            value={value}
-            onChange={(e) => setAnswer(field.id, e.target.value)}
-            placeholder={field.placeholder}
-            required={field.required}
-          />
-          {dynErrors[field.id] ? (
-            <p className="text-sm text-red-600">{dynErrors[field.id]}</p>
-          ) : null}
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-gray-800">
-          {field.label}{" "}
-          {field.required ? <span className="text-red-500">*</span> : null}
-        </label>
-        <input
-          type={field.type || "text"}
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          value={value}
-          onChange={(e) => setAnswer(field.id, e.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-        />
-        {dynErrors[field.id] ? (
-          <p className="text-sm text-red-600">{dynErrors[field.id]}</p>
-        ) : null}
-      </div>
-    );
-  }
+  // RenderField moved to file scope above; we pass stable props instead of closing over state
 }
