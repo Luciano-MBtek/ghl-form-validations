@@ -1,12 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import dynamic from "next/dynamic";
 import type { FormConfig } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
+import { isRecaptchaRequiredForSlug, getRecaptchaSiteKey } from "@/lib/env";
 
-const devLog = (...args: any[]) => {
-  if (process.env.NODE_ENV !== "production") console.log(...args);
-};
+const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), {
+  ssr: false,
+});
+
+const devLog = (..._args: any[]) => {};
 
 // NOTE: These presentational components are defined at file scope to avoid
 // unstable nested component identities that can cause input remounts/blur.
@@ -223,6 +233,21 @@ export default function LeadForm({
   const [phoneLineType, setPhoneLineType] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRequired = useMemo(
+    () =>
+      isRecaptchaRequiredForSlug(
+        formSlug,
+        (formConfig as any)?.captcha === true
+      ),
+    [formSlug, formConfig]
+  );
+  const siteKey = getRecaptchaSiteKey();
+
+  useEffect(() => {
+    setCaptchaToken(null);
+  }, [formSlug]);
+
   const [emailPending, setEmailPending] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<{
@@ -242,6 +267,8 @@ export default function LeadForm({
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
+
+  // (debug removed)
 
   // ------------ debounce helpers ------------
   const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -304,7 +331,9 @@ export default function LeadForm({
       firstName.trim() && lastName.trim() && consentTransactional === true
     );
     const anyPending = submitting || emailPending || phonePending;
-    return anyPending || !emailOk || !phoneOk || !requiredOk;
+    const mustSolveCaptcha = captchaRequired && !!siteKey;
+    const captchaOk = !mustSolveCaptcha || Boolean(captchaToken);
+    return anyPending || !emailOk || !phoneOk || !requiredOk || !captchaOk;
   }, [
     firstName,
     lastName,
@@ -314,6 +343,9 @@ export default function LeadForm({
     emailPending,
     phonePending,
     submitting,
+    captchaToken,
+    captchaRequired,
+    siteKey,
   ]);
 
   // Base class helpers (UI only)
@@ -502,6 +534,7 @@ export default function LeadForm({
                 (formConfig.booking as any)?.timezone ||
                 "America/New_York",
               startISO: selectedSlotISO,
+              captchaToken: captchaToken ?? undefined,
             }
           : {
               formSlug: formSlug || "form-testing-n8n",
@@ -565,41 +598,7 @@ export default function LeadForm({
         }
         // success
         // Dev logging to verify what was sent
-        if (process.env.NODE_ENV !== "production") {
-          console.log("[LeadForm] submit success", {
-            ok: data.ok,
-            contactId: data.contactId,
-            appointmentId: data.appointmentId,
-            sentAnswers: answers,
-            isBookingWizard,
-            sentPayload: isBookingWizard
-              ? {
-                  formSlug: formSlug || "form-testing-n8n",
-                  contact: {
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
-                    email: "<redacted>",
-                    phone: "<redacted>",
-                    country,
-                  },
-                  answers,
-                  // calendarId resolved from form config on server
-                  timezone: timezone || (formConfig.booking as any)?.timezone,
-                  startISO: selectedSlotISO,
-                }
-              : {
-                  formSlug: formSlug || "form-testing-n8n",
-                  firstName: firstName.trim(),
-                  lastName: lastName.trim(),
-                  email: "<redacted>",
-                  phone: "<redacted>",
-                  country,
-                  consentTransactional,
-                  consentMarketing,
-                  answers,
-                },
-          });
-        }
+        // success
 
         // Clear form and show success panel
         setFirstName("");
@@ -1031,6 +1030,18 @@ export default function LeadForm({
           </label>
         </div>
       </div>
+
+      {/* reCAPTCHA widget (Contact Info step; above Submit) */}
+      {captchaRequired && siteKey ? (
+        <div className="sm:col-span-2 mt-4 mb-2 flex justify-center">
+          <ReCAPTCHA
+            sitekey={siteKey}
+            onChange={(token: string | null) => setCaptchaToken(token)}
+            onExpired={() => setCaptchaToken(null)}
+            onErrored={() => setCaptchaToken(null)}
+          />
+        </div>
+      ) : null}
 
       <hr className="sm:col-span-2 my-6 border-gray-200" />
 

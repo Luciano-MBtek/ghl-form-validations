@@ -37,11 +37,7 @@ export async function GET(req: NextRequest) {
       ...(locationId && { "Location-Id": locationId }),
     };
 
-    console.log("[diag/token] testing token with headers:", {
-      version,
-      hasLocationId: !!locationId,
-      locationIdHeaderUsed: !!locationId,
-    });
+    // debug removed
 
     const response = await fetch(url, {
       method: "GET",

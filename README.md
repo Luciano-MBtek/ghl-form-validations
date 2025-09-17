@@ -221,6 +221,38 @@ Failure (example):
 
 LeadConnector headers (see `leadconnector.ts`): Authorization, Version, Location-Id, Content-Type, Accept.
 
+### reCAPTCHA v2 (checkbox)
+
+Two switches to enable gating:
+
+1. Per-form config (preferred): add `"captcha": true` to a form in `src/app/forms/registry.json` (e.g., `form-2-calendar-boilers`).
+2. Per-env public list: set `NEXT_PUBLIC_RECAPTCHA_FOR_SLUGS` to a comma-separated list of slugs.
+
+Client envs:
+
+```
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
+NEXT_PUBLIC_RECAPTCHA_FOR_SLUGS=form-2-calendar-boilers
+```
+
+Server envs:
+
+```
+RECAPTCHA_ENABLED=true
+RECAPTCHA_SECRET=your_secret_here
+```
+
+Notes:
+
+- Client uses only NEXT*PUBLIC*\* envs to decide whether to render the widget and gate Submit.
+- Server uses `RECAPTCHA_ENABLED` and `RECAPTCHA_SECRET` to verify tokens and enforce gating in `/api/appointments`.
+- Files:
+  - `src/lib/env.ts` – env helpers; `isRecaptchaRequiredForSlug` checks form flag or public list
+  - `src/lib/recaptcha.ts` – server verification util
+  - `src/app/api/recaptcha/verify/route.ts` – optional diagnostic endpoint
+  - `src/app/api/appointments/route.ts` – verifies token for gated slugs
+  - `src/components/LeadForm.tsx` – renders widget above Submit and includes `captchaToken`
+
 ## Styling
 
 - Tailwind integration:

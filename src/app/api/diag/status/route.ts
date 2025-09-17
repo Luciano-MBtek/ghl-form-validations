@@ -36,10 +36,7 @@ export async function GET() {
     const token = process.env.LC_PRIVATE_TOKEN!;
     const loc = process.env.LC_LOCATION_ID!;
 
-    console.log("[diag/status] testing location access:", {
-      version,
-      locationId: loc,
-    });
+    // debug removed
 
     const res = await fetch(`${base}/locations/me`, {
       headers: {
@@ -56,12 +53,7 @@ export async function GET() {
       body = await res.json();
     } catch {}
 
-    console.log("[diag/status] response:", {
-      status: res.status,
-      statusText: res.statusText,
-      hasBody: !!body,
-      traceId: body?.traceId,
-    });
+    // debug removed
 
     if (res.ok) {
       return NextResponse.json({

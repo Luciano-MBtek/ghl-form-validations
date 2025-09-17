@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
       customFieldsArray.push({ id: field.mapCustomFieldId, value });
     }
-    console.log("[lead] CFs resolved:", customFieldsArray);
+    // debug removed
 
     // --- 2) Base payload (no CFs) ---
     const phoneE164 = toE164FromNational(body.phone, body.country || "US");
@@ -138,14 +138,12 @@ export async function POST(req: NextRequest) {
     try {
       rawUpsert = await lcUpsertContact(upsertPayload);
       contactId = pickContactId(rawUpsert);
-      console.log("[lead] upsert -> id:", contactId);
     } catch (err: any) {
       // upsert not available → try create
       if (err?.status === 404 || err?.status === 405) {
         try {
           const created = await lcCreateContact(basePayload);
           contactId = pickContactId(created);
-          console.log("[lead] create -> id:", contactId);
         } catch (ce: any) {
           // duplicate → extract meta.contactId and update base fields
           const dupId =
@@ -154,7 +152,7 @@ export async function POST(req: NextRequest) {
             ce?.response?.data?.meta?.contactId;
           if (!dupId) throw ce;
           contactId = dupId;
-          console.log("[lead] duplicate create, using meta.contactId:", dupId);
+          // debug removed
           await lcUpdateContact(dupId, basePayload);
         }
       } else {
@@ -170,8 +168,7 @@ export async function POST(req: NextRequest) {
           const found = await lcGetContactsByQuery(basePayload.email, locId);
           contactId =
             pickContactId(found?.contacts?.[0]) ?? found?.contacts?.[0]?.id;
-          if (contactId)
-            console.log("[lead] recovered id by email:", contactId);
+          // debug removed
         } catch (e) {}
       }
       if (!contactId && phoneE164) {
@@ -179,17 +176,13 @@ export async function POST(req: NextRequest) {
           const found = await lcGetContactsByQuery(phoneE164, locId);
           contactId =
             pickContactId(found?.contacts?.[0]) ?? found?.contacts?.[0]?.id;
-          if (contactId)
-            console.log("[lead] recovered id by phone:", contactId);
+          // debug removed
         } catch (e) {}
       }
     }
 
     // bail out loudly if we still don't have an id
     if (!contactId) {
-      console.warn("[lead] no contactId after upsert/create/search", {
-        rawUpsert,
-      });
       return NextResponse.json(
         {
           ok: false,
@@ -206,7 +199,7 @@ export async function POST(req: NextRequest) {
         await lcUpdateContact(contactId, { customFields: customFieldsArray });
         sentCFs = customFieldsArray.length;
       } catch (e) {
-        console.warn("[lead] failed to PUT customFields:", e);
+        // ignore failure
       }
     }
 
@@ -218,7 +211,7 @@ export async function POST(req: NextRequest) {
           form.locationId || ""
         );
       } catch (e) {
-        console.warn("workflow_enroll_failed", e);
+        // ignore
       }
     }
 

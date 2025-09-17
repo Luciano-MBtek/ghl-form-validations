@@ -131,19 +131,9 @@ export async function GET(req: NextRequest) {
     if (rangeMs > maxRangeMs) {
       // Trim end date to 31 days
       endMs = startMs + maxRangeMs;
-      console.warn("[availability] trimmed end date to 31-day range", {
-        originalEnd: new Date(endMs + rangeMs - maxRangeMs).toISOString(),
-        trimmedEnd: new Date(endMs).toISOString(),
-      });
     }
 
-    console.debug("[availability] inputs", {
-      slug,
-      calendarId,
-      startMs,
-      endMs,
-      timezone,
-    });
+    // debug removed
 
     // Fetch availability from LeadConnector
     const rawResponse = await lcGetFreeSlots({
@@ -153,16 +143,7 @@ export async function GET(req: NextRequest) {
       timezone,
     });
 
-    console.log("[availability] raw", {
-      slug,
-      calendarId,
-      responseKeys: Object.keys(rawResponse),
-      hasSlots: Array.isArray(rawResponse.slots),
-      hasDates: !!rawResponse._dates_,
-      hasDateKeys: Object.keys(rawResponse).some((key) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(key)
-      ),
-    });
+    // debug removed
 
     // Filter by date key to hide today and weekends completely
     const todayKey = ymdInTz(new Date(), timezone);
@@ -225,31 +206,7 @@ export async function GET(req: NextRequest) {
       if (kept.length) filteredByCutoff[dateKey] = { slots: kept };
     }
 
-    const totalSlots = Object.values(slotsByDate).reduce(
-      (n, d) => n + (d.slots?.length ?? 0),
-      0
-    );
-    const remainingSlots = Object.values(filteredByCutoff).reduce(
-      (n, d) => n + (d.slots?.length ?? 0),
-      0
-    );
-    console.log("[availability] cutoff filtering", {
-      slug,
-      lead,
-      totalSlots,
-      remainingSlots,
-      dropped: totalSlots - remainingSlots,
-      weekendTodayDropped,
-    });
-
-    console.log("[availability] filtered by date key", {
-      slug,
-      calendarId,
-      todayKey,
-      totalDateKeys: Object.keys(rawSlots).length,
-      filteredDateKeys: Object.keys(filteredByDateKey).length,
-      traceId,
-    });
+    // debug removed
 
     return NextResponse.json({
       ok: true,

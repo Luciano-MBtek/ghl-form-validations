@@ -43,12 +43,6 @@ export function listForms(): FormConfigResolved[] {
           const resolved = resolveIdFromEnv(envKey);
           if (resolved) {
             out.mapCustomFieldId = resolved;
-          } else if (process.env.NODE_ENV !== "production") {
-            console.warn("[formsRegistry] missing mapCustomFieldId for", {
-              slug: (f as any).slug,
-              key: field.id ?? field.key,
-              envKey,
-            });
           }
         } else if (field.mapCustomFieldId) {
           out.mapCustomFieldId = field.mapCustomFieldId;
