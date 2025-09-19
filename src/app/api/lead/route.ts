@@ -25,6 +25,8 @@ type LeadPayload = {
   country?: string;
   answers?: Record<string, any>; // Dynamic form answers
   customFields?: { id: string; value: string }[]; // Legacy support
+  tags?: string[]; // Additional tags for forms-go
+  meta?: Record<string, string | undefined>; // Hidden meta for forms-go
 };
 
 export async function POST(req: NextRequest) {
@@ -104,12 +106,36 @@ export async function POST(req: NextRequest) {
 
       customFieldsArray.push({ id: field.mapCustomFieldId, value });
     }
+
+    // Handle meta fields from forms-go (store as custom fields if we have a Notes field)
+    if (body.meta && Object.keys(body.meta).length > 0) {
+      // Find a Notes custom field to store meta data
+      const notesField = form.sections
+        ?.flatMap((s: any) => s.fields)
+        ?.find(
+          (f: any) =>
+            f.mapCustomFieldId && f.label?.toLowerCase().includes("note")
+        );
+      if (notesField?.mapCustomFieldId) {
+        const metaString = Object.entries(body.meta)
+          .filter(([_, v]) => v)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join("; ");
+        if (metaString) {
+          customFieldsArray.push({
+            id: notesField.mapCustomFieldId,
+            value: metaString,
+          });
+        }
+      }
+    }
     // debug removed
 
     // --- 2) Base payload (no CFs) ---
     const phoneE164 = toE164FromNational(body.phone, body.country || "US");
     const tags = [
       ...(form.tags || []),
+      ...(body.tags || []), // Additional tags from forms-go
       body.consentMarketing ? "MarketingOptIn" : null,
       emailR.valid === null ? "EmailUnknown" : null,
       phoneR.valid === null ? "PhoneUnknown" : null,
