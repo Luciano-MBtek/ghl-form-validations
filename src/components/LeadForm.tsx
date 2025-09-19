@@ -200,6 +200,9 @@ export default function LeadForm({
   isBookingWizard = false,
   selectedSlotISO,
   timezone,
+  initialValues,
+  tagsOnSubmit,
+  hiddenMeta,
 }: {
   formSlug: string;
   formConfig: FormConfig;
@@ -211,11 +214,29 @@ export default function LeadForm({
   isBookingWizard?: boolean;
   selectedSlotISO?: string | null;
   timezone?: string;
+  initialValues?: Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    country: string;
+    note: string;
+  }>;
+  tagsOnSubmit?: string[];
+  hiddenMeta?: Record<string, string | undefined>;
 }) {
-  const [firstName, setFirstName] = useState(prefill?.firstName ?? "");
-  const [lastName, setLastName] = useState(prefill?.lastName ?? "");
-  const [email, setEmail] = useState(prefill?.email ?? "");
-  const [phone, setPhone] = useState(prefill?.phone ?? "");
+  const [firstName, setFirstName] = useState(
+    initialValues?.firstName ?? prefill?.firstName ?? ""
+  );
+  const [lastName, setLastName] = useState(
+    initialValues?.lastName ?? prefill?.lastName ?? ""
+  );
+  const [email, setEmail] = useState(
+    initialValues?.email ?? prefill?.email ?? ""
+  );
+  const [phone, setPhone] = useState(
+    initialValues?.phone ?? prefill?.phone ?? ""
+  );
   const [consentTransactional, setConsentTransactional] = useState(false);
   const [consentMarketing, setConsentMarketing] = useState(false);
 
@@ -262,11 +283,26 @@ export default function LeadForm({
   const [emailAttempted, setEmailAttempted] = useState(false);
   const [phoneAttempted, setPhoneAttempted] = useState(false);
 
-  const [country, setCountry] = useState<string>(prefill?.country || "US");
+  const [country, setCountry] = useState<string>(
+    initialValues?.country ?? (prefill?.country || "US")
+  );
 
   // Dynamic registry-driven answers
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dynErrors, setDynErrors] = useState<Record<string, string>>({});
+
+  // Handle initial values updates
+  useEffect(() => {
+    if (!initialValues) return;
+    if (initialValues.firstName !== undefined)
+      setFirstName(initialValues.firstName);
+    if (initialValues.lastName !== undefined)
+      setLastName(initialValues.lastName);
+    if (initialValues.email !== undefined) setEmail(initialValues.email);
+    if (initialValues.phone !== undefined) setPhone(initialValues.phone);
+    if (initialValues.country !== undefined) setCountry(initialValues.country);
+    // Note: note field not currently implemented in the form
+  }, [initialValues]);
 
   // (debug removed)
 
@@ -547,9 +583,13 @@ export default function LeadForm({
               consentMarketing,
               answers, // Send dynamic form answers
               // Include calendar/appointment meta if present
-              ...(prefill?.calendar && { calendar: prefill.calendar }),
-              ...(prefill?.apptStart && { apptStart: prefill.apptStart }),
-              ...(prefill?.apptTz && { apptTz: prefill.apptTz }),
+              ...(prefill?.calendarId && { calendarId: prefill.calendarId }),
+              ...(prefill?.appointmentTime && {
+                appointmentTime: prefill.appointmentTime,
+              }),
+              // Include additional tags and meta for forms-go
+              ...(tagsOnSubmit && { tags: tagsOnSubmit }),
+              ...(hiddenMeta && { meta: hiddenMeta }),
             };
 
         const res = await fetch(apiEndpoint, {

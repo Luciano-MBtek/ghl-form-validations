@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import LeadForm from "@/components/LeadForm";
 import BookingWizard from "@/components/BookingWizard";
 import { getFormBySlug } from "@/lib/formsRegistry";
-import { parsePrefillFromSearchParams } from "@/lib/prefill";
+import { prefillFromSearchParams } from "@/lib/prefill";
 import Image from "next/image";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function Page({
       Array.isArray(v) ? v.map((vv) => [k, vv]) : v ? [[k, v]] : []
     ) as [string, string][]
   );
-  const prefill = parsePrefillFromSearchParams(sp);
+  const prefill = prefillFromSearchParams(sp);
 
   const form = getFormBySlug(slug);
 
