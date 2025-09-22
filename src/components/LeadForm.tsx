@@ -10,6 +10,7 @@ import React, {
 import dynamic from "next/dynamic";
 import type { FormConfig } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
+import { toNationalDigits, toE164, onlyDigits } from "@/lib/phone";
 import { isRecaptchaRequiredForSlug, getRecaptchaSiteKey } from "@/lib/env";
 
 const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), {
@@ -301,7 +302,10 @@ export default function LeadForm({
     if (initialValues.lastName !== undefined)
       setLastName(initialValues.lastName);
     if (initialValues.email !== undefined) setEmail(initialValues.email);
-    if (initialValues.phone !== undefined) setPhone(initialValues.phone);
+    if (initialValues.phone !== undefined) {
+      const c = initialValues.country ?? country;
+      setPhone(toNationalDigits(initialValues.phone, c));
+    }
     if (initialValues.country !== undefined) setCountry(initialValues.country);
     // Note: note field not currently implemented in the form
   }, [initialValues]);
@@ -496,18 +500,23 @@ export default function LeadForm({
   };
 
   const onPhoneChange = (v: string) => {
-    // strip non-digits for our national format input
-    const onlyDigits = v.replace(/[^\d]/g, "");
-    setPhone(onlyDigits);
+    // keep only digits in UI
+    const digits = onlyDigits(v);
+    setPhone(digits);
     setPhoneValid(null);
-    debounce(() => runPhoneValidation(onlyDigits, country), phoneTimer);
+    // validate using E.164 where possible
+    const e164 = toE164(digits, country) || digits;
+    debounce(() => runPhoneValidation(e164, country), phoneTimer);
   };
 
   const onCountryChange = (c: string) => {
     const iso = c.toUpperCase();
     setCountry(iso);
-    // revalidate with new country if we already have digits
-    if (phone) debounce(() => runPhoneValidation(phone, iso), phoneTimer);
+    // revalidate with new country if we already have digits (use e164 preferred)
+    if (phone) {
+      const e164 = toE164(phone, iso) || phone;
+      debounce(() => runPhoneValidation(e164, iso), phoneTimer);
+    }
   };
 
   // ------------ one-time auto-validation for prefilled values ------------
@@ -568,7 +577,7 @@ export default function LeadForm({
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 email: email.trim(),
-                phone: toE164(phone, country),
+                phone: toE164(phone, country) || phone,
                 country,
               },
               answers, // Send dynamic form answers
@@ -585,7 +594,7 @@ export default function LeadForm({
               firstName: firstName.trim(),
               lastName: lastName.trim(),
               email: email.trim(),
-              phone: toE164(phone, country),
+              phone: toE164(phone, country) || phone,
               country,
               consentTransactional,
               consentMarketing,
