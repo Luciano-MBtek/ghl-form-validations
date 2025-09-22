@@ -203,6 +203,7 @@ export default function LeadForm({
   initialValues,
   tagsOnSubmit,
   hiddenMeta,
+  prefillValidate = true,
 }: {
   formSlug: string;
   formConfig: FormConfig;
@@ -224,6 +225,7 @@ export default function LeadForm({
   }>;
   tagsOnSubmit?: string[];
   hiddenMeta?: Record<string, string | undefined>;
+  prefillValidate?: boolean;
 }) {
   const [firstName, setFirstName] = useState(
     initialValues?.firstName ?? prefill?.firstName ?? ""
@@ -412,7 +414,7 @@ export default function LeadForm({
 
   // Helper components moved to file scope above to keep identities stable
 
-  // ------------ validation calls ------------
+  // ------------ validation calls (reusable) ------------
   async function runEmailValidation(value: string) {
     if (!value) {
       setEmailValid(null);
@@ -508,24 +510,30 @@ export default function LeadForm({
     if (phone) debounce(() => runPhoneValidation(phone, iso), phoneTimer);
   };
 
-  // ------------ auto-run on mount when prefilled ------------
+  // ------------ one-time auto-validation for prefilled values ------------
+  const prefillValidatedRef = useRef(false);
   useEffect(() => {
-    // Only override country if a valid, recognized code was provided
-    if (prefill?.country && prefill.country.length === 2) {
-      setCountry(prefill.country.toUpperCase());
-    }
+    if (!prefillValidate) return;
+    if (prefillValidatedRef.current) return;
 
-    if (prefill?.email) {
-      debounce(() => runEmailValidation(prefill.email!), emailTimer);
-    }
-    if (prefill?.phone) {
-      debounce(
-        () => runPhoneValidation(prefill.phone!, prefill.country ?? "US"),
-        phoneTimer
-      );
-    }
+    const emailSeed = initialValues?.email?.trim() || prefill?.email?.trim();
+    const phoneSeed = initialValues?.phone?.trim() || prefill?.phone?.trim();
+    const countrySeed = (
+      initialValues?.country ||
+      prefill?.country ||
+      "US"
+    ).trim();
+
+    if (!emailSeed && !phoneSeed) return;
+    prefillValidatedRef.current = true;
+    queueMicrotask(async () => {
+      const tasks: Promise<void>[] = [];
+      if (emailSeed) tasks.push(runEmailValidation(emailSeed));
+      if (phoneSeed) tasks.push(runPhoneValidation(phoneSeed, countrySeed));
+      await Promise.allSettled(tasks);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // once
+  }, [initialValues, prefillValidate]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
