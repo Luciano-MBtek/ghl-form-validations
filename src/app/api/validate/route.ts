@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
+import { isBlockedEmailPrefix } from "@/lib/emailBlock";
 import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -24,13 +25,22 @@ export async function POST(req: Request) {
 
     let emailResp = undefined;
     if (typeof email === "string") {
-      const r = await validateEmail(email);
-      emailResp = {
-        emailValid: r.valid,
-        emailReason: r.reason,
-        emailConfidence: r.confidence,
-        echoEmail: email,
-      };
+      const block = isBlockedEmailPrefix(email);
+      if (block.blocked) {
+        emailResp = {
+          emailValid: false,
+          emailReason: "This email address isn’t accepted.",
+          echoEmail: email,
+        };
+      } else {
+        const r = await validateEmail(email);
+        emailResp = {
+          emailValid: r.valid,
+          emailReason: r.reason,
+          emailConfidence: r.confidence,
+          echoEmail: email,
+        };
+      }
     }
 
     let phoneResp = undefined;

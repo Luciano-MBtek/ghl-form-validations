@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import type { FormConfig } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
 import { toNationalDigits, toE164, onlyDigits } from "@/lib/phone";
+import { isBlockedEmailPrefix } from "@/lib/emailBlock";
 import { isRecaptchaRequiredForSlug, getRecaptchaSiteKey } from "@/lib/env";
 
 const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), {
@@ -428,6 +429,13 @@ export default function LeadForm({
     setEmailAttempted(true);
     setEmailPending(true);
     try {
+      // local short-circuit for blocked prefixes
+      const block = isBlockedEmailPrefix(value);
+      if (block.blocked) {
+        setEmailValid(false);
+        setEmailReason("This email address isn’t accepted.");
+        return;
+      }
       const res = await fetch("/api/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
