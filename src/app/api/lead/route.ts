@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
+import { isBlockedEmailPrefix } from "@/lib/emailBlock";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import {
   lcUpsertContact,
@@ -67,6 +68,19 @@ export async function POST(req: NextRequest) {
     if (!body.phone?.trim()) errors.phone = "Phone is required";
     if (body.consentTransactional !== true)
       errors.consentTransactional = "Transactional consent required";
+
+    // Blocked prefix short-circuit
+    const block = isBlockedEmailPrefix(body.email);
+    if (block.blocked) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Email is not accepted.",
+          errors: { email: "This email address isn’t accepted." },
+        },
+        { status: 400 }
+      );
+    }
 
     // Revalidation - only block on hard failures
     const emailR = await validateEmail(body.email);
