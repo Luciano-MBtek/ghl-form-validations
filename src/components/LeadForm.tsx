@@ -275,6 +275,15 @@ export default function LeadForm({
 
   const [emailPending, setEmailPending] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
+
+  // Name validation state
+  const [firstPending, setFirstPending] = useState(false);
+  const [lastPending, setLastPending] = useState(false);
+  const [firstValid, setFirstValid] = useState<boolean | null>(null);
+  const [lastValid, setLastValid] = useState<boolean | null>(null);
+  const [firstReason, setFirstReason] = useState<string>("");
+  const [lastReason, setLastReason] = useState<string>("");
+
   const [submitSuccess, setSubmitSuccess] = useState<{
     contactId?: string;
     appointmentId?: string;
@@ -367,24 +376,39 @@ export default function LeadForm({
   const latestEmail = useRef<string>("");
   const latestPhone = useRef<string>("");
 
-  const submitDisabled = useMemo(() => {
+  const formBlocked = useMemo(() => {
     const emailOk = emailValid === true;
     const phoneOk = phoneValid === true;
+    const firstOk = firstValid === true;
+    const lastOk = lastValid === true;
     const requiredOk = Boolean(
       firstName.trim() && lastName.trim() && consentTransactional === true
     );
-    const anyPending = submitting || emailPending || phonePending;
+    const anyPending =
+      submitting || emailPending || phonePending || firstPending || lastPending;
     const mustSolveCaptcha = captchaRequired && !!siteKey;
     const captchaOk = !mustSolveCaptcha || Boolean(captchaToken);
-    return anyPending || !emailOk || !phoneOk || !requiredOk || !captchaOk;
+    return (
+      anyPending ||
+      !emailOk ||
+      !phoneOk ||
+      !firstOk ||
+      !lastOk ||
+      !requiredOk ||
+      !captchaOk
+    );
   }, [
     firstName,
     lastName,
     consentTransactional,
     emailValid,
     phoneValid,
+    firstValid,
+    lastValid,
     emailPending,
     phonePending,
+    firstPending,
+    lastPending,
     submitting,
     captchaToken,
     captchaRequired,
@@ -500,6 +524,54 @@ export default function LeadForm({
     }
   }
 
+  // ------------ name validation functions ------------
+  async function validateFirstName(value: string) {
+    setFirstPending(true);
+    try {
+      const res = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: value }),
+      });
+      const json = await res.json();
+      // echo guard
+      if (json.echoFirstName !== value) return;
+      setFirstValid(!!json.firstNameValid);
+      setFirstReason(
+        json.firstNameValid
+          ? ""
+          : json.firstNameReason || "That name looks mistyped."
+      );
+    } catch {
+      // soft-fail: do not mark invalid on network issues
+    } finally {
+      setFirstPending(false);
+    }
+  }
+
+  async function validateLastName(value: string) {
+    setLastPending(true);
+    try {
+      const res = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lastName: value }),
+      });
+      const json = await res.json();
+      if (json.echoLastName !== value) return;
+      setLastValid(!!json.lastNameValid);
+      setLastReason(
+        json.lastNameValid
+          ? ""
+          : json.lastNameReason || "That name looks mistyped."
+      );
+    } catch {
+      // soft-fail
+    } finally {
+      setLastPending(false);
+    }
+  }
+
   // ------------ onChange re-validate (debounced) ------------
   const onEmailChange = (v: string) => {
     setEmail(v);
@@ -572,7 +644,7 @@ export default function LeadForm({
         return;
       }
 
-      if (submitDisabled) return;
+      if (formBlocked) return;
       setSubmitting(true);
       try {
         // Choose API endpoint based on booking wizard mode
@@ -691,7 +763,7 @@ export default function LeadForm({
       }
     },
     [
-      submitDisabled,
+      formBlocked,
       firstName,
       lastName,
       email,
@@ -811,30 +883,170 @@ export default function LeadForm({
         >
           First Name <span className="text-red-500">*</span>
         </label>
-        <input
-          id="firstName"
-          name="firstName"
-          type="text"
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
+        <div className="relative">
+          {(() => {
+            const {
+              show: showFirst,
+              isGreen,
+              isRed,
+            } = stateFlags(firstValid as Tri, firstPending);
+            const firstClasses = [
+              INPUT_BASE,
+              "pr-9",
+              isGreen
+                ? "border-green-500 ring-1 ring-green-500 focus:border-green-500 focus:ring-green-500"
+                : isRed
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-sky-500 focus:ring-sky-500",
+            ].join(" ");
+            return (
+              <>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  onBlur={(e) => validateFirstName(e.currentTarget.value)}
+                  className={firstClasses}
+                  required
+                  aria-invalid={firstValid === false ? true : undefined}
+                  aria-describedby={
+                    firstPending || firstValid === false
+                      ? "firstName-help"
+                      : undefined
+                  }
+                />
+                {firstPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                    <Spinner />
+                  </div>
+                )}
+                {showFirst && !firstPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    {isGreen ? (
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+        {firstValid === false && (
+          <p id="firstName-help" className="mt-1 text-sm text-red-600">
+            {firstReason || "That name looks mistyped."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5 sm:col-span-1">
         <label htmlFor="lastName" className="text-sm font-medium text-gray-800">
           Last Name <span className="text-red-500">*</span>
         </label>
-        <input
-          id="lastName"
-          name="lastName"
-          type="text"
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          required
-        />
+        <div className="relative">
+          {(() => {
+            const {
+              show: showLast,
+              isGreen,
+              isRed,
+            } = stateFlags(lastValid as Tri, lastPending);
+            const lastClasses = [
+              INPUT_BASE,
+              "pr-9",
+              isGreen
+                ? "border-green-500 ring-1 ring-green-500 focus:border-green-500 focus:ring-green-500"
+                : isRed
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-sky-500 focus:ring-sky-500",
+            ].join(" ");
+            return (
+              <>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  onBlur={(e) => validateLastName(e.currentTarget.value)}
+                  className={lastClasses}
+                  required
+                  aria-invalid={lastValid === false ? true : undefined}
+                  aria-describedby={
+                    lastPending || lastValid === false
+                      ? "lastName-help"
+                      : undefined
+                  }
+                />
+                {lastPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                    <Spinner />
+                  </div>
+                )}
+                {showLast && !lastPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    {isGreen ? (
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+        {lastValid === false && (
+          <p id="lastName-help" className="mt-1 text-sm text-red-600">
+            {lastReason || "That name looks mistyped."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5 sm:col-span-2">
@@ -1135,10 +1347,10 @@ export default function LeadForm({
       <div className="sm:col-span-2 mt-2">
         <button
           type="submit"
-          disabled={submitDisabled}
-          aria-disabled={submitDisabled}
+          disabled={formBlocked}
+          aria-disabled={formBlocked}
           className={`${BUTTON_BASE} ${
-            submitDisabled
+            formBlocked
               ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
               : "bg-blue-600 text-white hover:bg-blue-700"
           }`}

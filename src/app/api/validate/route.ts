@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
 import { isBlockedEmailPrefix } from "@/lib/emailBlock";
+import { validateHumanName } from "@/lib/name";
 import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -21,26 +22,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, phone, country } = await req.json().catch(() => ({}));
+    const { email, phone, country, firstName, lastName } = await req
+      .json()
+      .catch(() => ({}));
 
-    let emailResp = undefined;
+    // Check for blocked email prefix first
     if (typeof email === "string") {
       const block = isBlockedEmailPrefix(email);
       if (block.blocked) {
-        emailResp = {
+        return NextResponse.json({
           emailValid: false,
-          emailReason: "This email address isn’t accepted.",
+          emailReason: "This email address isn't accepted.",
           echoEmail: email,
-        };
-      } else {
-        const r = await validateEmail(email);
-        emailResp = {
-          emailValid: r.valid,
-          emailReason: r.reason,
-          emailConfidence: r.confidence,
-          echoEmail: email,
-        };
+        });
       }
+    }
+
+    // Original email/phone validation (unchanged)
+    let emailResp = undefined;
+    if (typeof email === "string") {
+      const r = await validateEmail(email);
+      emailResp = {
+        emailValid: r.valid,
+        emailReason: r.reason,
+        emailConfidence: r.confidence,
+        echoEmail: email,
+      };
     }
 
     let phoneResp = undefined;
@@ -55,10 +62,31 @@ export async function POST(req: Request) {
       };
     }
 
-    return NextResponse.json({
+    const payload: any = {
       ...(emailResp ?? {}),
       ...(phoneResp ?? {}),
-    });
+    };
+
+    // ===== Name validation (non-destructive; do not alter email/phone logic) =====
+    if (typeof firstName === "string") {
+      const r = validateHumanName(firstName);
+      payload.firstNameValid = r.valid;
+      payload.firstNameReason = r.reason ?? "";
+      payload.firstNameScore = r.score;
+      payload.echoFirstName = firstName;
+      if (r.suggestion) payload.firstNameSuggestion = r.suggestion;
+    }
+
+    if (typeof lastName === "string") {
+      const r = validateHumanName(lastName);
+      payload.lastNameValid = r.valid;
+      payload.lastNameReason = r.reason ?? "";
+      payload.lastNameScore = r.score;
+      payload.echoLastName = lastName;
+      if (r.suggestion) payload.lastNameSuggestion = r.suggestion;
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Validation error:", error);
     return NextResponse.json(
