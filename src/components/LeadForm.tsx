@@ -11,7 +11,6 @@ import dynamic from "next/dynamic";
 import type { FormConfig } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
 import { toNationalDigits, toE164, onlyDigits } from "@/lib/phone";
-import { isBlockedEmailPrefix } from "@/lib/emailBlock";
 import { isRecaptchaRequiredForSlug, getRecaptchaSiteKey } from "@/lib/env";
 
 const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), {
@@ -275,6 +274,18 @@ export default function LeadForm({
 
   const [emailPending, setEmailPending] = useState(false);
   const [phonePending, setPhonePending] = useState(false);
+
+  // Name validation state
+  const [firstPending, setFirstPending] = useState(false);
+  const [lastPending, setLastPending] = useState(false);
+  const [firstValid, setFirstValid] = useState<boolean | null>(null);
+  const [lastValid, setLastValid] = useState<boolean | null>(null);
+  const [firstReason, setFirstReason] = useState<string>("");
+  const [lastReason, setLastReason] = useState<string>("");
+  // Only render errors AFTER the user interacts with the field
+  const [firstTouched, setFirstTouched] = useState(false);
+  const [lastTouched, setLastTouched] = useState(false);
+
   const [submitSuccess, setSubmitSuccess] = useState<{
     contactId?: string;
     appointmentId?: string;
@@ -316,6 +327,8 @@ export default function LeadForm({
   // ------------ debounce helpers ------------
   const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const debounce = (cb: () => void, ref: typeof emailTimer, ms = 450) => {
     if (ref.current) clearTimeout(ref.current);
@@ -367,24 +380,39 @@ export default function LeadForm({
   const latestEmail = useRef<string>("");
   const latestPhone = useRef<string>("");
 
-  const submitDisabled = useMemo(() => {
+  const formBlocked = useMemo(() => {
     const emailOk = emailValid === true;
     const phoneOk = phoneValid === true;
+    const firstOk = firstValid === true;
+    const lastOk = lastValid === true;
     const requiredOk = Boolean(
       firstName.trim() && lastName.trim() && consentTransactional === true
     );
-    const anyPending = submitting || emailPending || phonePending;
+    const anyPending =
+      submitting || emailPending || phonePending || firstPending || lastPending;
     const mustSolveCaptcha = captchaRequired && !!siteKey;
     const captchaOk = !mustSolveCaptcha || Boolean(captchaToken);
-    return anyPending || !emailOk || !phoneOk || !requiredOk || !captchaOk;
+    return (
+      anyPending ||
+      !emailOk ||
+      !phoneOk ||
+      !firstOk ||
+      !lastOk ||
+      !requiredOk ||
+      !captchaOk
+    );
   }, [
     firstName,
     lastName,
     consentTransactional,
     emailValid,
     phoneValid,
+    firstValid,
+    lastValid,
     emailPending,
     phonePending,
+    firstPending,
+    lastPending,
     submitting,
     captchaToken,
     captchaRequired,
@@ -429,13 +457,6 @@ export default function LeadForm({
     setEmailAttempted(true);
     setEmailPending(true);
     try {
-      // local short-circuit for blocked prefixes
-      const block = isBlockedEmailPrefix(value);
-      if (block.blocked) {
-        setEmailValid(false);
-        setEmailReason("This email address isn’t accepted.");
-        return;
-      }
       const res = await fetch("/api/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -500,6 +521,80 @@ export default function LeadForm({
     }
   }
 
+  // ------------ name validation functions ------------
+  const validateFirst = useMemo(
+    () => (value: string) => {
+      debounce(async () => {
+        // Don't validate empty values unless user has interacted.
+        if (!value.trim()) {
+          setFirstPending(false);
+          // If not touched yet, don't mark invalid—keep neutral like email/phone.
+          if (!firstTouched) {
+            setFirstValid(null); // neutral
+            setFirstReason("");
+            return;
+          }
+          // If touched and empty, mark invalid (required).
+          setFirstValid(false);
+          setFirstReason("Please enter your first name.");
+          return;
+        }
+        setFirstPending(true);
+        try {
+          const res = await fetch("/api/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ firstName: value }),
+          });
+          const json = await res.json();
+          // expects { firstNameValid, firstNameReason, echoFirstName }
+          if (json.echoFirstName === value) {
+            setFirstValid(!!json.firstNameValid);
+            setFirstReason(json.firstNameReason || "");
+          }
+        } finally {
+          setFirstPending(false);
+        }
+      }, firstTimer);
+    },
+    [setFirstPending, setFirstValid, setFirstReason, firstTouched]
+  );
+
+  const validateLast = useMemo(
+    () => (value: string) => {
+      debounce(async () => {
+        if (!value.trim()) {
+          setLastPending(false);
+          if (!lastTouched) {
+            setLastValid(null); // neutral
+            setLastReason("");
+            return;
+          }
+          setLastValid(false);
+          setLastReason("Please enter your last name.");
+          return;
+        }
+        setLastPending(true);
+        try {
+          const res = await fetch("/api/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lastName: value }),
+          });
+          const json = await res.json();
+          // expects { lastNameValid, lastNameReason, echoLastName }
+          if (json.echoLastName === value) {
+            setLastValid(!!json.lastNameValid);
+            setLastReason(json.lastNameReason || "");
+          }
+        } finally {
+          setLastPending(false);
+        }
+      }, lastTimer);
+    },
+    [setLastPending, setLastValid, setLastReason, lastTouched]
+  );
+
   // ------------ onChange re-validate (debounced) ------------
   const onEmailChange = (v: string) => {
     setEmail(v);
@@ -524,6 +619,26 @@ export default function LeadForm({
     if (phone) {
       const e164 = toE164(phone, iso) || phone;
       debounce(() => runPhoneValidation(e164, iso), phoneTimer);
+    }
+  };
+
+  const onFirstChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (!firstTouched) setFirstTouched(true);
+    setFirstName(v);
+    // Only trigger validation after there's some input (or if already touched).
+    // This avoids red borders on initial empty state.
+    if (v.trim().length > 0 || firstTouched) {
+      validateFirst(v);
+    }
+  };
+
+  const onLastChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (!lastTouched) setLastTouched(true);
+    setLastName(v);
+    if (v.trim().length > 0 || lastTouched) {
+      validateLast(v);
     }
   };
 
@@ -572,7 +687,7 @@ export default function LeadForm({
         return;
       }
 
-      if (submitDisabled) return;
+      if (formBlocked) return;
       setSubmitting(true);
       try {
         // Choose API endpoint based on booking wizard mode
@@ -691,7 +806,7 @@ export default function LeadForm({
       }
     },
     [
-      submitDisabled,
+      formBlocked,
       firstName,
       lastName,
       email,
@@ -811,30 +926,174 @@ export default function LeadForm({
         >
           First Name <span className="text-red-500">*</span>
         </label>
-        <input
-          id="firstName"
-          name="firstName"
-          type="text"
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
+        <div className="relative">
+          {(() => {
+            const {
+              show: showFirst,
+              isGreen,
+              isRed,
+            } = stateFlags(
+              firstTouched ? (firstValid as Tri) : undefined,
+              firstPending
+            );
+            const firstClasses = [
+              INPUT_BASE,
+              "pr-9",
+              isGreen
+                ? "border-green-500 ring-1 ring-green-500 focus:border-green-500 focus:ring-green-500"
+                : isRed
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-sky-500 focus:ring-sky-500",
+            ].join(" ");
+            return (
+              <>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={onFirstChange}
+                  className={firstClasses}
+                  required
+                  aria-invalid={firstValid === false ? true : undefined}
+                  aria-describedby={
+                    firstPending || firstValid === false
+                      ? "firstName-help"
+                      : undefined
+                  }
+                />
+                {firstPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                    <Spinner />
+                  </div>
+                )}
+                {showFirst && !firstPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    {isGreen ? (
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+        {firstTouched && firstValid === false && (
+          <p id="firstName-help" className="mt-1 text-sm text-red-600">
+            {firstReason || "That name looks mistyped."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5 sm:col-span-1">
         <label htmlFor="lastName" className="text-sm font-medium text-gray-800">
           Last Name <span className="text-red-500">*</span>
         </label>
-        <input
-          id="lastName"
-          name="lastName"
-          type="text"
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          required
-        />
+        <div className="relative">
+          {(() => {
+            const {
+              show: showLast,
+              isGreen,
+              isRed,
+            } = stateFlags(
+              lastTouched ? (lastValid as Tri) : undefined,
+              lastPending
+            );
+            const lastClasses = [
+              INPUT_BASE,
+              "pr-9",
+              isGreen
+                ? "border-green-500 ring-1 ring-green-500 focus:border-green-500 focus:ring-green-500"
+                : isRed
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-sky-500 focus:ring-sky-500",
+            ].join(" ");
+            return (
+              <>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={onLastChange}
+                  className={lastClasses}
+                  required
+                  aria-invalid={lastValid === false ? true : undefined}
+                  aria-describedby={
+                    lastPending || lastValid === false
+                      ? "lastName-help"
+                      : undefined
+                  }
+                />
+                {lastPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400">
+                    <Spinner />
+                  </div>
+                )}
+                {showLast && !lastPending && (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    {isGreen ? (
+                      <svg
+                        className="h-4 w-4 text-green-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.704 5.29a1 1 0 010 1.414l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.415-1.414l2.493 2.493 6.493-6.493a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4 text-red-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+        {lastTouched && lastValid === false && (
+          <p id="lastName-help" className="mt-1 text-sm text-red-600">
+            {lastReason || "That name looks mistyped."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5 sm:col-span-2">
@@ -1135,10 +1394,10 @@ export default function LeadForm({
       <div className="sm:col-span-2 mt-2">
         <button
           type="submit"
-          disabled={submitDisabled}
-          aria-disabled={submitDisabled}
+          disabled={formBlocked}
+          aria-disabled={formBlocked}
           className={`${BUTTON_BASE} ${
-            submitDisabled
+            formBlocked
               ? "opacity-50 cursor-not-allowed bg-gray-300 text-gray-600"
               : "bg-blue-600 text-white hover:bg-blue-700"
           }`}

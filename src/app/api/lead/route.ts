@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
-import { isBlockedEmailPrefix } from "@/lib/emailBlock";
+import { validateHumanName } from "@/lib/name";
 import { getFormBySlug } from "@/lib/formsRegistry";
 import {
   lcUpsertContact,
@@ -69,19 +69,6 @@ export async function POST(req: NextRequest) {
     if (body.consentTransactional !== true)
       errors.consentTransactional = "Transactional consent required";
 
-    // Blocked prefix short-circuit
-    const block = isBlockedEmailPrefix(body.email);
-    if (block.blocked) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Email is not accepted.",
-          errors: { email: "This email address isn’t accepted." },
-        },
-        { status: 400 }
-      );
-    }
-
     // Revalidation - only block on hard failures
     const emailR = await validateEmail(body.email);
     if (emailR.valid === false) {
@@ -91,6 +78,25 @@ export async function POST(req: NextRequest) {
     const phoneR = await validatePhone(body.phone, body.country);
     if (phoneR.valid === false) {
       errors.phone = phoneR.reason || "phone_invalid";
+    }
+
+    // First / Last name server-side enforcement
+    {
+      const fn = validateHumanName(body.firstName ?? "");
+      const ln = validateHumanName(body.lastName ?? "");
+      if (!fn.valid || !ln.valid) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Invalid name.",
+            errors: {
+              firstName: { valid: fn.valid, reason: fn.reason ?? "" },
+              lastName: { valid: ln.valid, reason: ln.reason ?? "" },
+            },
+          },
+          { status: 422 }
+        );
+      }
     }
 
     if (Object.keys(errors).length > 0) {

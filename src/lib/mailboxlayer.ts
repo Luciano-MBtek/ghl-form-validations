@@ -39,6 +39,7 @@ export async function mailboxlayerCheck(
     });
     clearTimeout(to);
     const data = await res.json();
+    console.log("[validate] Mailboxlayer result", data);
 
     // expected fields: format_valid, mx_found, smtp_check, catch_all, score, disposable, role
     const {
