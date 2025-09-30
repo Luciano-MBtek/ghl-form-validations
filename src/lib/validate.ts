@@ -9,6 +9,9 @@ import {
 } from "./config";
 import dns from "node:dns";
 
+// NEW: import the blocklist helpers
+import { isBlockedEmailPrefix, isBlockedEmailDomain } from "./emailBlocklist";
+
 // --- Name validation helpers ---
 const NAME_SAFE_RE =
   /^[\p{L}](?:[\p{L}\p{M}]|[ '\-](?=[\p{L}\p{M}]))*[\p{L}]$/u;
@@ -146,6 +149,27 @@ export async function validateEmail(email?: string): Promise<EmailResult> {
     return { valid: false, reason: "empty", confidence: "low" };
   if (!isPlausibleEmail(email))
     return { valid: false, reason: "bad_format", confidence: "low" };
+
+  // Early block checks (prefix/domain)
+  const prefixCheck = isBlockedEmailPrefix(email);
+  if (prefixCheck.blocked) {
+    return {
+      valid: false,
+      reason: "This email address isn't allowed (prefix).",
+      score: 0.0,
+      confidence: "low",
+    };
+  }
+
+  const domainCheck = isBlockedEmailDomain(email);
+  if (domainCheck.blocked) {
+    return {
+      valid: false,
+      reason: "This email domain isn't allowed.",
+      score: 0.0,
+      confidence: "low",
+    };
+  }
 
   const normalizedEmail = email.trim().toLowerCase();
   const cacheKey = `email:${normalizedEmail}`;

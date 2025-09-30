@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { validateEmail, validatePhone } from "@/lib/validate";
-import { isBlockedEmailPrefix } from "@/lib/emailBlock";
 import { validateHumanName } from "@/lib/name";
 import { rateLimit } from "@/lib/rateLimit";
 
@@ -25,18 +24,6 @@ export async function POST(req: Request) {
     const { email, phone, country, firstName, lastName } = await req
       .json()
       .catch(() => ({}));
-
-    // Check for blocked email prefix first
-    if (typeof email === "string") {
-      const block = isBlockedEmailPrefix(email);
-      if (block.blocked) {
-        return NextResponse.json({
-          emailValid: false,
-          emailReason: "This email address isn't accepted.",
-          echoEmail: email,
-        });
-      }
-    }
 
     // Original email/phone validation (unchanged)
     let emailResp = undefined;
