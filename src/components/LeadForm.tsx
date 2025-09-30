@@ -282,6 +282,9 @@ export default function LeadForm({
   const [lastValid, setLastValid] = useState<boolean | null>(null);
   const [firstReason, setFirstReason] = useState<string>("");
   const [lastReason, setLastReason] = useState<string>("");
+  // Only render errors AFTER the user interacts with the field
+  const [firstTouched, setFirstTouched] = useState(false);
+  const [lastTouched, setLastTouched] = useState(false);
 
   const [submitSuccess, setSubmitSuccess] = useState<{
     contactId?: string;
@@ -324,6 +327,8 @@ export default function LeadForm({
   // ------------ debounce helpers ------------
   const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const debounce = (cb: () => void, ref: typeof emailTimer, ms = 450) => {
     if (ref.current) clearTimeout(ref.current);
@@ -517,52 +522,78 @@ export default function LeadForm({
   }
 
   // ------------ name validation functions ------------
-  async function validateFirstName(value: string) {
-    setFirstPending(true);
-    try {
-      const res = await fetch("/api/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: value }),
-      });
-      const json = await res.json();
-      // echo guard
-      if (json.echoFirstName !== value) return;
-      setFirstValid(!!json.firstNameValid);
-      setFirstReason(
-        json.firstNameValid
-          ? ""
-          : json.firstNameReason || "That name looks mistyped."
-      );
-    } catch {
-      // soft-fail: do not mark invalid on network issues
-    } finally {
-      setFirstPending(false);
-    }
-  }
+  const validateFirst = useMemo(
+    () => (value: string) => {
+      debounce(async () => {
+        // Don't validate empty values unless user has interacted.
+        if (!value.trim()) {
+          setFirstPending(false);
+          // If not touched yet, don't mark invalid—keep neutral like email/phone.
+          if (!firstTouched) {
+            setFirstValid(null); // neutral
+            setFirstReason("");
+            return;
+          }
+          // If touched and empty, mark invalid (required).
+          setFirstValid(false);
+          setFirstReason("Please enter your first name.");
+          return;
+        }
+        setFirstPending(true);
+        try {
+          const res = await fetch("/api/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ firstName: value }),
+          });
+          const json = await res.json();
+          // expects { firstNameValid, firstNameReason, echoFirstName }
+          if (json.echoFirstName === value) {
+            setFirstValid(!!json.firstNameValid);
+            setFirstReason(json.firstNameReason || "");
+          }
+        } finally {
+          setFirstPending(false);
+        }
+      }, firstTimer);
+    },
+    [setFirstPending, setFirstValid, setFirstReason, firstTouched]
+  );
 
-  async function validateLastName(value: string) {
-    setLastPending(true);
-    try {
-      const res = await fetch("/api/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lastName: value }),
-      });
-      const json = await res.json();
-      if (json.echoLastName !== value) return;
-      setLastValid(!!json.lastNameValid);
-      setLastReason(
-        json.lastNameValid
-          ? ""
-          : json.lastNameReason || "That name looks mistyped."
-      );
-    } catch {
-      // soft-fail
-    } finally {
-      setLastPending(false);
-    }
-  }
+  const validateLast = useMemo(
+    () => (value: string) => {
+      debounce(async () => {
+        if (!value.trim()) {
+          setLastPending(false);
+          if (!lastTouched) {
+            setLastValid(null); // neutral
+            setLastReason("");
+            return;
+          }
+          setLastValid(false);
+          setLastReason("Please enter your last name.");
+          return;
+        }
+        setLastPending(true);
+        try {
+          const res = await fetch("/api/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lastName: value }),
+          });
+          const json = await res.json();
+          // expects { lastNameValid, lastNameReason, echoLastName }
+          if (json.echoLastName === value) {
+            setLastValid(!!json.lastNameValid);
+            setLastReason(json.lastNameReason || "");
+          }
+        } finally {
+          setLastPending(false);
+        }
+      }, lastTimer);
+    },
+    [setLastPending, setLastValid, setLastReason, lastTouched]
+  );
 
   // ------------ onChange re-validate (debounced) ------------
   const onEmailChange = (v: string) => {
@@ -588,6 +619,26 @@ export default function LeadForm({
     if (phone) {
       const e164 = toE164(phone, iso) || phone;
       debounce(() => runPhoneValidation(e164, iso), phoneTimer);
+    }
+  };
+
+  const onFirstChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (!firstTouched) setFirstTouched(true);
+    setFirstName(v);
+    // Only trigger validation after there's some input (or if already touched).
+    // This avoids red borders on initial empty state.
+    if (v.trim().length > 0 || firstTouched) {
+      validateFirst(v);
+    }
+  };
+
+  const onLastChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    if (!lastTouched) setLastTouched(true);
+    setLastName(v);
+    if (v.trim().length > 0 || lastTouched) {
+      validateLast(v);
     }
   };
 
@@ -881,7 +932,10 @@ export default function LeadForm({
               show: showFirst,
               isGreen,
               isRed,
-            } = stateFlags(firstValid as Tri, firstPending);
+            } = stateFlags(
+              firstTouched ? (firstValid as Tri) : undefined,
+              firstPending
+            );
             const firstClasses = [
               INPUT_BASE,
               "pr-9",
@@ -898,8 +952,7 @@ export default function LeadForm({
                   name="firstName"
                   type="text"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  onBlur={(e) => validateFirstName(e.currentTarget.value)}
+                  onChange={onFirstChange}
                   className={firstClasses}
                   required
                   aria-invalid={firstValid === false ? true : undefined}
@@ -949,7 +1002,7 @@ export default function LeadForm({
             );
           })()}
         </div>
-        {firstValid === false && (
+        {firstTouched && firstValid === false && (
           <p id="firstName-help" className="mt-1 text-sm text-red-600">
             {firstReason || "That name looks mistyped."}
           </p>
@@ -966,7 +1019,10 @@ export default function LeadForm({
               show: showLast,
               isGreen,
               isRed,
-            } = stateFlags(lastValid as Tri, lastPending);
+            } = stateFlags(
+              lastTouched ? (lastValid as Tri) : undefined,
+              lastPending
+            );
             const lastClasses = [
               INPUT_BASE,
               "pr-9",
@@ -983,8 +1039,7 @@ export default function LeadForm({
                   name="lastName"
                   type="text"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  onBlur={(e) => validateLastName(e.currentTarget.value)}
+                  onChange={onLastChange}
                   className={lastClasses}
                   required
                   aria-invalid={lastValid === false ? true : undefined}
@@ -1034,7 +1089,7 @@ export default function LeadForm({
             );
           })()}
         </div>
-        {lastValid === false && (
+        {lastTouched && lastValid === false && (
           <p id="lastName-help" className="mt-1 text-sm text-red-600">
             {lastReason || "That name looks mistyped."}
           </p>
