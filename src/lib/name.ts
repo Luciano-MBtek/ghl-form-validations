@@ -36,6 +36,50 @@ function vowelConsonantWeirdnessRatio(s: string) {
   return ratio; // we'll flag extremes on long strings
 }
 
+// Treat Y as a vowel for names
+const VOWEL_RE = /[AEIOUYaeiouy\u00C0-\u024F]/;
+
+// Letters that are uncommon at high density in natural names (Latin script)
+const RARE_LATIN_RE = /[qxzjkfw]/i;
+
+// Return max run of consonants (Latin only; y counted as vowel here)
+function maxConsonantClusterLatin(s: string): number {
+  let maxRun = 0,
+    run = 0;
+  for (const ch of s) {
+    const isLetter = /[A-Za-z]/.test(ch);
+    const isVowel = VOWEL_RE.test(ch);
+    if (isLetter && !isVowel) {
+      run += 1;
+      if (run > maxRun) maxRun = run;
+    } else {
+      run = 0;
+    }
+  }
+  return maxRun;
+}
+
+function rareLetterRatioLatin(s: string): number {
+  const letters = s.replace(/[^A-Za-z]/g, "");
+  if (!letters) return 0;
+  const rare = (letters.match(RARE_LATIN_RE) ?? []).length;
+  return rare / letters.length;
+}
+
+function dominantBigramShare(s: string): number {
+  const letters = s.replace(/[^A-Za-z\u00C0-\u024F]/g, "");
+  if (letters.length < 4) return 0;
+  const bigrams = new Map<string, number>();
+  for (let i = 0; i < letters.length - 1; i++) {
+    const bg = letters.slice(i, i + 2).toLowerCase();
+    bigrams.set(bg, (bigrams.get(bg) ?? 0) + 1);
+  }
+  const total = [...bigrams.values()].reduce((a, b) => a + b, 0);
+  if (!total) return 0;
+  const max = Math.max(...bigrams.values());
+  return max / total;
+}
+
 export type NameCheck = {
   valid: boolean;
   reason?: string;
@@ -132,6 +176,46 @@ export function validateHumanName(
       score: 0.2,
       suggestion,
     };
+
+  // --- Extra anti-gibberish heuristics for Latin names ---
+  // We skip these if the name has diacritics or separators (to avoid harming legit intl names)
+  const hasDiacritic = /[\u00C0-\u024F]/.test(s);
+  const hasSep = /[-']/.test(s);
+  const isLatinOnly = /^[A-Za-z '\-]+$/.test(s);
+
+  if (isLatinOnly && !hasDiacritic) {
+    // 1) Long consonant clusters look unnatural in first/last names
+    if (s.length >= 6 && maxConsonantClusterLatin(s) >= 4) {
+      return {
+        valid: false,
+        reason: "looks_gibberish",
+        score: 0.3,
+        suggestion,
+      };
+    }
+
+    // 2) High density of rare letters (q x z j k f w) often indicates keyboard smash
+    const rareRatio = rareLetterRatioLatin(s);
+    if (s.length >= 6 && rareRatio >= 0.5 && !hasSep) {
+      return {
+        valid: false,
+        reason: "looks_gibberish",
+        score: 0.3,
+        suggestion,
+      };
+    }
+
+    // 3) One bigram dominating the string is typical of repeating "ja/ka/qi" patterns
+    const domShare = dominantBigramShare(s);
+    if (s.length >= 6 && domShare >= 0.45) {
+      return {
+        valid: false,
+        reason: "looks_gibberish",
+        score: 0.3,
+        suggestion,
+      };
+    }
+  }
 
   // Looks good
   return { valid: true, score: 0.95, suggestion };
