@@ -595,6 +595,24 @@ export default function LeadForm({
     [setLastPending, setLastValid, setLastReason, lastTouched]
   );
 
+  // --- auto-validate prefilled first name (from query params) ---
+  useEffect(() => {
+    const v = (firstName ?? "").trim();
+    if (v && !firstTouched) {
+      setFirstTouched(true);
+      validateFirst(v);
+    }
+  }, [firstName, firstTouched, validateFirst]);
+
+  // --- auto-validate prefilled last name (from query params) ---
+  useEffect(() => {
+    const v = (lastName ?? "").trim();
+    if (v && !lastTouched) {
+      setLastTouched(true);
+      validateLast(v);
+    }
+  }, [lastName, lastTouched, validateLast]);
+
   // ------------ onChange re-validate (debounced) ------------
   const onEmailChange = (v: string) => {
     setEmail(v);
