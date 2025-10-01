@@ -1,6 +1,6 @@
 import { getCache, setCache } from "./cache";
 import { mailboxlayerCheck } from "./mailboxlayer";
-import { numverifyCheck } from "./numverify";
+import { phonevalidatorCheck } from "./phonevalidator";
 import type { EmailResult, PhoneResult } from "./validationTypes";
 import {
   ENABLE_TRUSTED_EMAIL_FALLBACK,
@@ -268,7 +268,23 @@ export async function validatePhone(
     };
   }
 
-  const { result } = await numverifyCheck(normalizedPhone, countryCode);
+  // Use PhoneValidator instead of Numverify
+  const phoneResult = await phonevalidatorCheck({
+    phone: normalizedPhone,
+    country: countryCode,
+    timeoutMs: 5000,
+  });
+
+  // Map PhoneValidator result to existing PhoneResult shape
+  const result: PhoneResult = {
+    valid: phoneResult.valid,
+    reason: phoneResult.reason,
+    confidence: phoneResult.ok ? "good" : "unknown",
+    lineType: phoneResult.lineType,
+    country: countryCode,
+    normalized: normalizedPhone,
+  };
+
   setCache(
     cacheKey,
     {
