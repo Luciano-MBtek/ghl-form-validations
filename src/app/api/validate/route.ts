@@ -5,6 +5,15 @@ import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
+function getClientIp(req: Request) {
+  // Try common proxy headers; fall back to empty string
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "";
+  return ip;
+}
+
 export async function POST(req: Request) {
   try {
     // Rate limiting
@@ -25,10 +34,13 @@ export async function POST(req: Request) {
       .json()
       .catch(() => ({}));
 
+    // Get client IP for ZeroBounce
+    const clientIp = getClientIp(req);
+
     // Original email/phone validation (unchanged)
     let emailResp = undefined;
     if (typeof email === "string") {
-      const r = await validateEmail(email);
+      const r = await validateEmail(email, clientIp);
       emailResp = {
         emailValid: r.valid,
         emailReason: r.reason,

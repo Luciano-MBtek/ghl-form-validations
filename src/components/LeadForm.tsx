@@ -70,15 +70,21 @@ function PhoneHelper({
   attempted,
   pending,
   valid,
+  reason,
 }: {
   attempted: boolean;
   pending: boolean;
   valid: boolean | null;
+  reason?: string;
 }) {
   if (!attempted) return null;
   if (pending) return <p className="mt-1 text-sm text-gray-500">Validating…</p>;
   if (valid === false)
-    return <p className="mt-1 text-sm text-red-600">Invalid phone number.</p>;
+    return (
+      <p className="mt-1 text-sm text-red-600">
+        {reason || "Invalid phone number."}
+      </p>
+    );
   return null;
 }
 
@@ -625,6 +631,7 @@ export default function LeadForm({
     const digits = onlyDigits(v);
     setPhone(digits);
     setPhoneValid(null);
+    setPhoneReason(""); // Clear reason when typing
     // validate using E.164 where possible
     const e164 = toE164(digits, country) || digits;
     debounce(() => runPhoneValidation(e164, country), phoneTimer);
@@ -1303,6 +1310,7 @@ export default function LeadForm({
               attempted={phoneAttempted}
               pending={phonePending}
               valid={phoneValid}
+              reason={phoneReason}
             />
           </div>
         )}
