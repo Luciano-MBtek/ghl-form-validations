@@ -1,5 +1,5 @@
 import { getCache, setCache } from "./cache";
-import { mailboxlayerCheck } from "./mailboxlayer";
+import { zerobounceCheck } from "./zerobounce";
 import { phonevalidatorCheck } from "./phonevalidator";
 import type { EmailResult, PhoneResult } from "./validationTypes";
 import {
@@ -144,7 +144,10 @@ export function isPlausiblePhoneBare(input: string): boolean {
   return digits.length >= 7 && digits.length <= 15; // ITU E.164 range
 }
 
-export async function validateEmail(email?: string): Promise<EmailResult> {
+export async function validateEmail(
+  email?: string,
+  ip?: string | null
+): Promise<EmailResult> {
   if (!email?.trim())
     return { valid: false, reason: "empty", confidence: "low" };
   if (!isPlausibleEmail(email))
@@ -188,14 +191,26 @@ export async function validateEmail(email?: string): Promise<EmailResult> {
     };
   }
 
-  const { result } = await mailboxlayerCheck(normalizedEmail);
+  const zbResult = await zerobounceCheck(normalizedEmail, ip);
 
-  // Apply fallback logic if Mailboxlayer returned null (timeout/error)
+  // Map ZeroBounce result to EmailResult format
+  const result: EmailResult = {
+    valid: zbResult.valid,
+    reason: zbResult.reason,
+    confidence: zbResult.valid ? "good" : "low",
+    score: zbResult.score || 0,
+    disposable: zbResult.sub_status === "disposable",
+    role: zbResult.sub_status === "role_based",
+    catchAll: zbResult.status === "catch-all",
+    domain: getDomain(normalizedEmail) || undefined,
+  };
+
+  // Apply fallback logic if ZeroBounce returned unknown/timeout
   let finalResult = result;
   if (
     result.valid === null &&
-    (result.reason === "timeout_soft_pass" ||
-      result.reason === "provider_missing")
+    (result.reason === "We couldn't verify this email right now." ||
+      result.reason === "Email verification is not configured.")
   ) {
     const domain = getDomain(normalizedEmail);
 
@@ -326,12 +341,13 @@ export async function validateCombined(input: {
   country?: string;
   firstName?: string;
   lastName?: string;
+  ip?: string | null;
 }): Promise<CombinedResult> {
   const out: CombinedResult = {};
 
   // Email validation
   if (typeof input.email === "string") {
-    const emailResult = await validateEmail(input.email);
+    const emailResult = await validateEmail(input.email, input.ip);
     out.emailValid =
       emailResult.valid === true
         ? true
@@ -381,12 +397,13 @@ export async function validateCombined(input: {
 export async function validateEmailAndPhone(
   email?: string,
   phone?: string,
-  country?: string
+  country?: string,
+  ip?: string | null
 ) {
   const result: any = {};
 
   if (email) {
-    const emailResult = await validateEmail(email);
+    const emailResult = await validateEmail(email, ip);
     result.emailValid = emailResult.valid;
     result.emailReason = emailResult.reason;
     result.emailConfidence = emailResult.confidence;

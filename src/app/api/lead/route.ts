@@ -70,7 +70,11 @@ export async function POST(req: NextRequest) {
       errors.consentTransactional = "Transactional consent required";
 
     // Revalidation - only block on hard failures
-    const emailR = await validateEmail(body.email);
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "";
+    const emailR = await validateEmail(body.email, clientIp);
     if (emailR.valid === false) {
       errors.email = emailR.reason || "email_invalid";
     }
