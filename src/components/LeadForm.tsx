@@ -12,6 +12,7 @@ import type { FormConfig } from "@/lib/formsRegistry";
 import type { Prefill } from "@/lib/prefill";
 import { toNationalDigits, toE164, onlyDigits } from "@/lib/phone";
 import { isRecaptchaRequiredForSlug, getRecaptchaSiteKey } from "@/lib/env";
+import { mustBeValidUSLength } from "@/lib/phonevalidator";
 
 const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), {
   ssr: false,
@@ -499,6 +500,21 @@ export default function LeadForm({
     }
     setPhoneAttempted(true);
     setPhonePending(true);
+
+    // Client-side NANP precheck for US numbers
+    const country = ctry.toUpperCase();
+    if (country === "US" || country === "CA" || !country) {
+      const precheck = mustBeValidUSLength(value);
+      if (!precheck.ok) {
+        setPhoneValid(false);
+        setPhoneReason(precheck.message || "Invalid US phone format.");
+        setPhoneConfidence("low");
+        setPhoneLineType("UNKNOWN");
+        setPhonePending(false);
+        return;
+      }
+    }
+
     try {
       const res = await fetch("/api/validate", {
         method: "POST",
