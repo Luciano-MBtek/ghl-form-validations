@@ -14,6 +14,8 @@ export const BLOCKED_EMAIL_DOMAINS = new Set<string>([
   "rhyta.com",
   "armyspy.com",
   "tiffincrane.com",
+  "mv6.com",
+  "acmecorp.com",
 ]);
 
 export type BlockCheck = {

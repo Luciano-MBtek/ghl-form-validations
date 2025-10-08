@@ -159,14 +159,31 @@ export function validateHumanName(
       suggestion,
     };
 
-  const vcr = vowelConsonantWeirdnessRatio(s);
-  if (s.length >= 7 && (vcr < 0.2 || vcr > 0.85))
+  // Compute on letters-only so spaces/hyphens don't inflate length
+  const lettersOnly = s.replace(/[^A-Za-z\u00C0-\u024F]/g, "");
+  const vowelCount = (lettersOnly.match(/[AEIOUYaeiouy\u00C0-\u024F]/g) ?? [])
+    .length;
+  const vcr = vowelCount / Math.max(lettersOnly.length, 1);
+
+  // Hard stop: 4+ letters with zero vowels (Y counts as vowel)
+  if (lettersOnly.length >= 4 && vowelCount === 0) {
+    return {
+      valid: false,
+      reason: "That name looks mistyped (needs a vowel).",
+      score: 0.2,
+      suggestion,
+    };
+  }
+
+  // Lower the gate for the vowel-ratio sanity check (7 -> 5) and use letters-only length
+  if (lettersOnly.length >= 5 && (vcr < 0.2 || vcr > 0.85)) {
     return {
       valid: false,
       reason: "That name doesn't look natural",
       score: 0.3,
       suggestion,
     };
+  }
 
   const words = s.split(" ").filter(Boolean);
   if (words.length > 4)

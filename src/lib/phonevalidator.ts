@@ -1,6 +1,64 @@
 // src/lib/phonevalidator.ts
 import { setCache, getCache } from "./cache";
 
+export type PhonePrecheckResult = {
+  ok: boolean;
+  reason?: string;
+  normalized?: string; // digits-only, 10-digit NANP after stripping leading 1 if present
+};
+
+const DIGIT_RE = /\d/g;
+
+export function normalizeDigits(input: string): string {
+  return (input.match(DIGIT_RE) ?? []).join("");
+}
+
+export function nanpPrecheckUS(input: string): PhonePrecheckResult {
+  let digits = normalizeDigits(input);
+
+  // Strip exactly one leading '1' if present (US country code)
+  if (digits.length === 11 && digits.startsWith("1")) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length !== 10) {
+    return {
+      ok: false,
+      reason:
+        "US numbers must have 10 digits (area code + number). If you included +1, remove it.",
+    };
+  }
+
+  // Light NANP rules
+  const areaFirst = digits.charCodeAt(0) - 48; // 0-9
+  const exchangeFirst = digits.charCodeAt(3) - 48;
+  const exchangeMid = digits.charCodeAt(4) - 48;
+
+  if (areaFirst < 2 || areaFirst > 9) {
+    return { ok: false, reason: "Invalid area code format." };
+  }
+  if (exchangeFirst < 2 || exchangeFirst > 9) {
+    return { ok: false, reason: "Invalid central office code format." };
+  }
+  // Disallow N11 for central office (e.g., 211, 311, ..., 911)
+  if (exchangeMid === 1 && exchangeFirst >= 2 && exchangeFirst <= 9) {
+    return { ok: false, reason: "Central office code cannot be an N11 code." };
+  }
+
+  return { ok: true, normalized: digits };
+}
+
+// Convenience helper to gate before calling external API
+export function mustBeValidUSLength(input: string): {
+  ok: boolean;
+  message?: string;
+  tenDigit?: string;
+} {
+  const pre = nanpPrecheckUS(input);
+  if (!pre.ok) return { ok: false, message: pre.reason };
+  return { ok: true, tenDigit: pre.normalized };
+}
+
 type PhoneValidatorResponse = {
   PhoneNumber?: string;
   Cost?: number;
@@ -78,25 +136,41 @@ export async function phonevalidatorCheck(input?: {
     return { ok: false, valid: true, reason: undefined };
   }
 
+  // Apply NANP precheck for US numbers
+  const country = (input?.country ?? "").toUpperCase();
+  if (country === "US" || country === "CA" || !country) {
+    const precheck = mustBeValidUSLength(phoneRaw);
+    if (!precheck.ok) {
+      return { ok: true, valid: false, reason: precheck.message };
+    }
+    // Use the normalized 10-digit number for PhoneValidator
+    const norm = `+1${precheck.tenDigit}`;
+    return await callPhoneValidator(norm, input?.timeoutMs);
+  }
+
+  // For non-US numbers, use existing logic
   const norm = normalizeToUSDigits(phoneRaw, input?.country ?? undefined);
   if (norm.length < 10) {
     return { ok: true, valid: false, reason: "Number looks too short." };
   }
+  return await callPhoneValidator(norm, input?.timeoutMs);
+}
 
-  const cacheKey = `phonevalidator:${norm}`;
+async function callPhoneValidator(
+  normalizedPhone: string,
+  timeoutMs?: number
+): Promise<PhoneCheckOutcome> {
+  const cacheKey = `phonevalidator:${normalizedPhone}`;
   const cached = getCache<PhoneCheckOutcome>(cacheKey);
   if (cached) return cached;
 
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    input?.timeoutMs ?? 5000
-  );
+  const timeout = setTimeout(() => controller.abort(), timeoutMs ?? 5000);
 
   try {
     const url = new URL(API_BASE);
     url.searchParams.set("apikey", API_KEY);
-    url.searchParams.set("phone", norm);
+    url.searchParams.set("phone", normalizedPhone);
     url.searchParams.set("type", TYPES_DEFAULT);
 
     const res = await fetch(url.toString(), {
@@ -192,4 +266,3 @@ export async function phonevalidatorCheck(input?: {
     clearTimeout(timeout);
   }
 }
-
