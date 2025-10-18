@@ -878,6 +878,152 @@
     },
 
     {
+      "slug": "wholesale-consultation-call",
+      "name": "Wholesale Consultation Call",
+      "locationIdEnv": "LC_LOCATION_ID",
+      "tags": ["wholesale-consultation-call", "wholesale", "consultation"],
+      "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
+      "sections": [
+        {
+          "title": "Contact Info",
+          "layout": "two-column",
+          "fields": [
+            {
+              "id": "firstName",
+              "type": "text",
+              "label": "First Name",
+              "required": false,
+              "map": "firstName"
+            },
+            {
+              "id": "lastName",
+              "type": "text",
+              "label": "Last Name",
+              "required": false,
+              "map": "lastName"
+            },
+            {
+              "id": "phone",
+              "type": "phone",
+              "label": "Phone",
+              "required": true,
+              "map": "phone",
+              "validate": "phonevalidator"
+            },
+            {
+              "id": "email",
+              "type": "email",
+              "label": "Email",
+              "required": true,
+              "map": "email",
+              "validate": "zerobounce"
+            }
+          ]
+        },
+        {
+          "title": "Project Details",
+          "fields": [
+            {
+              "id": "systemType",
+              "type": "select",
+              "label": "Do you need a full heating/cooling system or just individual components?",
+              "required": true,
+              "options": [
+                {
+                  "value": "complete_system",
+                  "label": "Complete heating/cooling system"
+                },
+                { "value": "heat_pump", "label": "Heat Pump" },
+                { "value": "boiler", "label": "Boiler" },
+                { "value": "fcu", "label": "FCU" },
+                { "value": "water_tank", "label": "Water Tank" },
+                { "value": "thermostat", "label": "Thermostat" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_COMPONENTS_ID"
+            },
+            {
+              "id": "propertyType",
+              "type": "radio",
+              "label": "Is this call related to a business or a home?",
+              "required": true,
+              "options": [
+                { "value": "business", "label": "Business" },
+                { "value": "home", "label": "Home" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_PROPERTY_TYPE_ID"
+            },
+            {
+              "id": "boilerType",
+              "type": "radio",
+              "label": "What type of boiler are you looking for?",
+              "required": false,
+              "options": [
+                { "value": "wood", "label": "Wood Boiler" },
+                { "value": "pellet", "label": "Pellet Boiler" },
+                { "value": "coal", "label": "Coal Boiler" },
+                { "value": "gas", "label": "Gas Boiler" },
+                { "value": "oil", "label": "Oil Boiler" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_BOILER_TYPE_ID",
+              "showIf": { "fieldId": "systemType", "equals": "boiler" }
+            },
+            {
+              "id": "investmentRange",
+              "type": "radio",
+              "label": "What's your investment range?",
+              "required": true,
+              "options": [
+                { "value": "lt_49999", "label": "< $49,999" },
+                { "value": "50k_69k", "label": "$50,000–$69,999" },
+                { "value": "70k_149k", "label": "$70,000–$149,999" },
+                { "value": "150k_299k", "label": "$150,000–$299,999" },
+                { "value": "gte_300k", "label": "+ $300,000" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_BUDGET_ID"
+            },
+            {
+              "id": "squareFeet",
+              "type": "radio",
+              "label": "How many square feet do you need to heat or cool?",
+              "required": true,
+              "options": [
+                { "value": "100_499", "label": "100 sqft - 499 sqft" },
+                { "value": "500_1500", "label": "500 sqft - 1500 sqft" },
+                { "value": "1501_3000", "label": "1501 sqft - 3000 sqft" },
+                { "value": "gte_3001", "label": "+ 3001 sqft" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_SQUARE_FEET_ID"
+            },
+            {
+              "id": "timeline",
+              "type": "radio",
+              "label": "When do you plan to start your project?",
+              "required": true,
+              "options": [
+                {
+                  "value": "ready_this_month",
+                  "label": "ready to buy -this month"
+                },
+                { "value": "within_1_month", "label": "Within the next month" },
+                {
+                  "value": "within_3_months",
+                  "label": "Within the next 3 months"
+                },
+                {
+                  "value": "within_6_months",
+                  "label": "Within the next 6 months"
+                },
+                { "value": "just_exploring", "label": "Just Exploring" }
+              ],
+              "mapCustomFieldIdEnv": "WHOLESALE_START_TIMELINE_ID"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
       "slug": "google-ads-lead-form",
       "name": "Google ADS - Lead Form",
       "locationIdEnv": "LC_LOCATION_ID",
