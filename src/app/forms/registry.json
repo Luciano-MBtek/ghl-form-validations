@@ -16,6 +16,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-testing-n8n", "Validated"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "sections": [
         {
           "title": "Contact Info",
@@ -81,6 +82,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-1-calendar"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_1",
@@ -385,6 +387,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-3-calendar-fcu"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_FORM_3_FCU",
@@ -541,6 +544,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["form-contact-us"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_CONTACT_US",
@@ -720,6 +724,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["general-lead-form"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "booking": {
         "enabled": true,
         "calendarIdEnv": "BOOKING_CALENDAR_ID_GENERAL_LEAD",
@@ -1029,6 +1034,7 @@
       "locationIdEnv": "LC_LOCATION_ID",
       "tags": ["google-ads-lead-form", "google-ads"],
       "workflowIdEnv": "LC_WORKFLOW_ID",
+      "captcha": true,
       "sections": [
         {
           "title": "Contact Info",

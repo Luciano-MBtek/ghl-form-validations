@@ -12,6 +12,8 @@ import {
   addContactToWorkflow,
 } from "@/lib/leadconnector";
 import { resolveOptionLabel } from "@/lib/options";
+import { verifyRecaptchaV2 } from "@/lib/recaptcha";
+import { isRecaptchaRequiredForSlug } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -28,6 +30,7 @@ type LeadPayload = {
   customFields?: { id: string; value: string }[]; // Legacy support
   tags?: string[]; // Additional tags for forms-go
   meta?: Record<string, string | undefined>; // Hidden meta for forms-go
+  captchaToken?: string; // reCAPTCHA token
 };
 
 export async function POST(req: NextRequest) {
@@ -105,6 +108,33 @@ export async function POST(req: NextRequest) {
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json({ ok: false, errors }, { status: 422 });
+    }
+
+    // reCAPTCHA verification for forms that require it
+    const captchaRequired = isRecaptchaRequiredForSlug(
+      form.slug,
+      (form as any)?.captcha === true
+    );
+    if (captchaRequired) {
+      const captchaToken = body.captchaToken;
+      if (!captchaToken) {
+        return NextResponse.json(
+          { ok: false, message: "Captcha verification required" },
+          { status: 400 }
+        );
+      }
+
+      const captchaResult = await verifyRecaptchaV2(captchaToken, clientIp);
+      if (!captchaResult.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Captcha verification failed",
+            reason: captchaResult.reason,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // --- 1) Build CFs array (labels) ---

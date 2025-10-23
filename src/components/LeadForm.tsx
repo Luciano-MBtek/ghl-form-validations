@@ -763,6 +763,7 @@ export default function LeadForm({
               consentTransactional,
               consentMarketing,
               answers, // Send dynamic form answers
+              captchaToken: captchaToken ?? undefined, // Include captcha token for regular forms
               // Include calendar/appointment meta if present
               ...(prefill?.calendarId && { calendarId: prefill.calendarId }),
               ...(prefill?.appointmentTime && {
